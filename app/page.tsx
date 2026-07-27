@@ -70,7 +70,7 @@ export default function Home() {
             <div className="session-stats">
               <div><strong>3</strong><span>øvelser</span></div>
               <div><strong>15</strong><span>arbejdssæt</span></div>
-              <div><strong>8,2 t</strong><span>planlagt</span></div>
+              <div><strong>3,1 t</strong><span>samlet volumen</span></div>
             </div>
           </article>
 
