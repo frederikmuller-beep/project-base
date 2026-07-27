@@ -2,12 +2,28 @@
 
 import { useMemo, useState } from "react";
 
-type View = "today" | "readiness" | "recommendation" | "session" | "complete";
+type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete";
 
-const exercises = [
+const todayExercises = [
   { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen" },
   { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse" },
   { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk" },
+];
+
+const exerciseLibrary = [
+  { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse" },
+  { name: "Hang snatch", category: "Snatch", target: "Timing · eksplosivitet", cue: "Hold spændingen over knæet" },
+  { name: "Power snatch", category: "Snatch", target: "Hastighed · træk", cue: "Modtag stangen højt og stabilt" },
+  { name: "Snatch balance", category: "Snatch", target: "Modtagelse · fodarbejde", cue: "Pres aktivt op mod stangen" },
+  { name: "Clean & Jerk", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Stabil clean før et roligt dip" },
+  { name: "Hang clean", category: "Clean", target: "Position · turnover", cue: "Afslut benene før albuerne" },
+  { name: "Power clean", category: "Clean", target: "Eksplosivitet · hastighed", cue: "Mød stangen – lad den ikke falde" },
+  { name: "Push jerk", category: "Jerk", target: "Ben-drive · timing", cue: "Lodret dip og hurtig lockout" },
+  { name: "Front squat", category: "Squat", target: "Ben · core", cue: "Albuer højt gennem hele løftet" },
+  { name: "Back squat", category: "Squat", target: "Maksimal benstyrke", cue: "Stabil bracing og ensartet dybde" },
+  { name: "Snatch pull", category: "Træk", target: "Ryg · position · kraft", cue: "Bevar skuldrene over stangen" },
+  { name: "Clean pull", category: "Træk", target: "Ben · ryg · kraft", cue: "Skub gulvet væk og afslut lodret" },
+  { name: "Strict press", category: "Assistance", target: "Skuldre · lockout", cue: "Spænd balder og hold ribben nede" },
 ];
 
 export default function Home() {
@@ -66,14 +82,47 @@ export default function Home() {
 
           <div className="section-head"><h3>Dagens plan</h3><span>3 øvelser</span></div>
           <div className="exercise-list">
-            {exercises.map((exercise, index) => (
+            {todayExercises.map((exercise, index) => (
               <div className="exercise" key={exercise.name}>
                 <span className="exercise-number">0{index + 1}</span>
                 <div><strong>{exercise.name}</strong><small>{exercise.detail}</small></div>
               </div>
             ))}
           </div>
+          <button className="library-link" onClick={() => setView("library")}>
+            <span><strong>Udforsk øvelsesbiblioteket</strong><small>13 øvelser · 7 kategorier</small></span>
+            <b>→</b>
+          </button>
           <button className="primary" onClick={() => setView("session")}>Start træning</button>
+        </section>
+      )}
+
+      {view === "library" && (
+        <section className="screen enter">
+          <button className="back" onClick={() => setView("today")}>← Tilbage</button>
+          <p className="eyebrow">ØVELSESBIBLIOTEK</p>
+          <h1>Variation med et formål.</h1>
+          <p className="lede">Hver variation er koblet til et træningsmål og et enkelt teknisk fokus.</p>
+          <div className="library-summary">
+            <div><strong>13</strong><span>øvelser</span></div>
+            <div><strong>7</strong><span>kategorier</span></div>
+            <div><strong>10</strong><span>variationer</span></div>
+          </div>
+          <div className="library-list">
+            {exerciseLibrary.map((exercise, index) => (
+              <article className="library-exercise" key={exercise.name}>
+                <div className="library-index">{String(index + 1).padStart(2, "0")}</div>
+                <div className="library-content">
+                  <span className="category-pill">{exercise.category}</span>
+                  <h3>{exercise.name}</h3>
+                  <p>{exercise.target}</p>
+                  <small><b>Fokus:</b> {exercise.cue}</small>
+                </div>
+                <button aria-label={`Tilføj ${exercise.name} til program`}>+</button>
+              </article>
+            ))}
+          </div>
+          <button className="secondary" onClick={() => setView("today")}>Tilbage til dagens træning</button>
         </section>
       )}
 
