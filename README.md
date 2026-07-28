@@ -14,6 +14,10 @@ Live prototype: [base-training-prototype.frederikmuller.chatgpt.site](https://ba
 
 Prototype data is temporary and is not saved between visits.
 
+## Prototype testing
+
+The [tester questionnaire](docs/tester-questionnaire.md) contains the short post-session survey, the final athlete and coach evaluation, and a follow-up interview guide for the 10–14 day test period.
+
 ## Local development
 
 Requires Node.js 22.13 or newer.
