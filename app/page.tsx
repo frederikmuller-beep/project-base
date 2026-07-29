@@ -3,15 +3,30 @@
 import { useMemo, useState } from "react";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 
-type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks";
+type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
-const todayExercises = [
+type SessionExercise = {
+  name: string;
+  detail: string;
+  focus: string;
+  sets: number;
+  plannedReps: string;
+  defaultWeight: string;
+};
+
+type ExtraDayExercise = {
+  name: string;
+  focus: string;
+  sets: string;
+  reps: string;
+  weight: string;
+};
+
+const todayExercises: SessionExercise[] = [
   { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen", sets: 6, plannedReps: "2", defaultWeight: "70" },
   { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse", sets: 5, plannedReps: "1+1", defaultWeight: "95" },
   { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk", sets: 4, plannedReps: "3", defaultWeight: "105" },
 ];
-
-const totalPlannedSets = todayExercises.reduce((total, exercise) => total + exercise.sets, 0);
 
 const exerciseLibrary = [
   { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse" },
@@ -29,6 +44,25 @@ const exerciseLibrary = [
   { name: "Strict press", category: "Assistance", target: "Skuldre · lockout", cue: "Spænd balder og hold ribben nede" },
 ];
 
+const extraDayDefaults: Record<string, Pick<ExtraDayExercise, "sets" | "reps" | "weight">> = {
+  "Snatch": { sets: "5", reps: "2", weight: "60" },
+  "Hang snatch": { sets: "4", reps: "3", weight: "50" },
+  "Power snatch": { sets: "5", reps: "2", weight: "55" },
+  "Snatch balance": { sets: "4", reps: "3", weight: "45" },
+  "Clean & Jerk": { sets: "5", reps: "1+1", weight: "80" },
+  "Hang clean": { sets: "4", reps: "3", weight: "70" },
+  "Power clean": { sets: "5", reps: "2", weight: "75" },
+  "Push jerk": { sets: "5", reps: "3", weight: "70" },
+  "Front squat": { sets: "4", reps: "4", weight: "90" },
+  "Back squat": { sets: "5", reps: "5", weight: "110" },
+  "Snatch pull": { sets: "4", reps: "3", weight: "80" },
+  "Clean pull": { sets: "4", reps: "3", weight: "110" },
+  "Strict press": { sets: "4", reps: "6", weight: "40" },
+};
+
+const countReps = (value: string) =>
+  value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
+
 export default function Home() {
   const [view, setView] = useState<View>("today");
   const [energy, setEnergy] = useState(3);
@@ -44,8 +78,41 @@ export default function Home() {
   const [reps, setReps] = useState("2");
   const [rpe, setRpe] = useState("7");
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
-  const currentExercise = todayExercises[exerciseIndex];
-  const nextExercise = todayExercises[exerciseIndex + 1];
+  const [sessionPlan, setSessionPlan] = useState<SessionExercise[]>(todayExercises);
+  const [extraDraft, setExtraDraft] = useState<ExtraDayExercise[]>([]);
+  const [extraDay, setExtraDay] = useState<ExtraDayExercise[]>([]);
+  const [extraDayName, setExtraDayName] = useState("Teknik & styrke");
+  const [savedExtraDayName, setSavedExtraDayName] = useState("");
+  const currentExercise = sessionPlan[exerciseIndex];
+  const nextExercise = sessionPlan[exerciseIndex + 1];
+  const totalPlannedSets = useMemo(
+    () => sessionPlan.reduce((total, exercise) => total + exercise.sets, 0),
+    [sessionPlan],
+  );
+  const extraTotals = useMemo(() => {
+    const sets = extraDraft.reduce((total, exercise) => total + (Number(exercise.sets) || 0), 0);
+    const volume = extraDraft.reduce(
+      (total, exercise) => total + (Number(exercise.sets) || 0) * countReps(exercise.reps) * (Number(exercise.weight) || 0),
+      0,
+    );
+    return { sets, volume };
+  }, [extraDraft]);
+  const savedExtraTotals = useMemo(() => {
+    const sets = extraDay.reduce((total, exercise) => total + (Number(exercise.sets) || 0), 0);
+    const volume = extraDay.reduce(
+      (total, exercise) => total + (Number(exercise.sets) || 0) * countReps(exercise.reps) * (Number(exercise.weight) || 0),
+      0,
+    );
+    return { sets, volume };
+  }, [extraDay]);
+  const extraDayPlan = useMemo<SessionExercise[]>(() => extraDay.map((exercise) => ({
+    name: exercise.name,
+    detail: `${exercise.sets} × ${exercise.reps} · ${exercise.weight} kg`,
+    focus: exercise.focus,
+    sets: Math.max(1, Number(exercise.sets) || 1),
+    plannedReps: exercise.reps || "1",
+    defaultWeight: exercise.weight || "0",
+  })), [extraDay]);
 
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind);
@@ -62,17 +129,19 @@ export default function Home() {
   const reset = () => {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
-    setSetSaved(false); setWeight("70"); setReps("2"); setRpe("7");
+    setSetSaved(false); setWeight("70"); setReps("2"); setRpe("7"); setSessionPlan(todayExercises);
   };
 
-  const startSession = (useAdjustment: boolean) => {
+  const startSession = (useAdjustment: boolean, plan: SessionExercise[] = todayExercises) => {
+    if (plan.length === 0) return;
+    setSessionPlan(plan);
     setAdjusted(useAdjustment);
     setExerciseIndex(0);
     setSetIndex(0);
     setCompletedSets(0);
     setSetSaved(false);
-    setWeight(useAdjustment ? "65" : todayExercises[0].defaultWeight);
-    setReps(todayExercises[0].plannedReps);
+    setWeight(useAdjustment ? "65" : plan[0].defaultWeight);
+    setReps(plan[0].plannedReps);
     setRpe("7");
     setView("session");
   };
@@ -101,6 +170,35 @@ export default function Home() {
     }
 
     setView("complete");
+  };
+
+  const toggleExtraExercise = (exercise: (typeof exerciseLibrary)[number]) => {
+    setExtraDraft((current) => {
+      if (current.some((item) => item.name === exercise.name)) {
+        return current.filter((item) => item.name !== exercise.name);
+      }
+      if (current.length >= 5) return current;
+      return [...current, { name: exercise.name, focus: exercise.cue, ...extraDayDefaults[exercise.name] }];
+    });
+  };
+
+  const updateExtraExercise = (name: string, field: "sets" | "reps" | "weight", value: string) => {
+    setExtraDraft((current) => current.map((exercise) =>
+      exercise.name === name ? { ...exercise, [field]: value } : exercise,
+    ));
+  };
+
+  const saveExtraDay = () => {
+    if (extraDraft.length === 0) return;
+    setExtraDay(extraDraft.map((exercise) => ({ ...exercise })));
+    setSavedExtraDayName(extraDayName.trim() || "Ekstra træningsdag");
+    setView("extraDay");
+  };
+
+  const editExtraDay = () => {
+    setExtraDraft(extraDay.map((exercise) => ({ ...exercise })));
+    setExtraDayName(savedExtraDayName || "Teknik & styrke");
+    setView("extraBuilder");
   };
 
   return (
@@ -146,6 +244,20 @@ export default function Home() {
             <span><strong>Udforsk øvelsesbiblioteket</strong><small>13 øvelser · 7 kategorier</small></span>
             <b>→</b>
           </button>
+          {extraDay.length === 0 ? (
+            <button className="extra-day-entry" onClick={() => setView("library")}>
+              <span className="extra-day-icon">＋</span>
+              <span><strong>Sammensæt ekstra træningsdag</strong><small>Vælg øvelser, sæt, reps og vægt</small></span>
+              <b>→</b>
+            </button>
+          ) : (
+            <article className="saved-extra-day">
+              <div className="saved-extra-day-head"><span>EKSTRA DAG</span><button onClick={editExtraDay}>Redigér</button></div>
+              <h3>{savedExtraDayName}</h3>
+              <p>{extraDay.length} øvelser · {savedExtraTotals.sets} arbejdssæt · {savedExtraTotals.volume.toLocaleString("da-DK")} kg volumen</p>
+              <button className="secondary" onClick={() => setView("extraDay")}>Se ekstra træningsdag</button>
+            </article>
+          )}
           <button className="primary" onClick={() => startSession(false)}>Start træning</button>
           <article className="feedback-entry">
             <span className="feedback-entry-icon">◎</span>
@@ -170,8 +282,10 @@ export default function Home() {
             <div><strong>10</strong><span>variationer</span></div>
           </div>
           <div className="library-list">
-            {exerciseLibrary.map((exercise, index) => (
-              <article className="library-exercise" key={exercise.name}>
+            {exerciseLibrary.map((exercise, index) => {
+              const selected = extraDraft.some((item) => item.name === exercise.name);
+              return (
+              <article className={selected ? "library-exercise selected" : "library-exercise"} key={exercise.name}>
                 <div className="library-index">{String(index + 1).padStart(2, "0")}</div>
                 <div className="library-content">
                   <span className="category-pill">{exercise.category}</span>
@@ -179,11 +293,76 @@ export default function Home() {
                   <p>{exercise.target}</p>
                   <small><b>Fokus:</b> {exercise.cue}</small>
                 </div>
-                <button aria-label={`Tilføj ${exercise.name} til program`}>+</button>
+                <button
+                  className={selected ? "selected" : ""}
+                  aria-label={`${selected ? "Fjern" : "Tilføj"} ${exercise.name} ${selected ? "fra" : "til"} program`}
+                  aria-pressed={selected}
+                  onClick={() => toggleExtraExercise(exercise)}
+                >{selected ? "✓" : "+"}</button>
+              </article>
+            );})}
+          </div>
+          <div className="builder-dock">
+            <div><strong>{extraDraft.length} / 5 øvelser valgt</strong><small>Vælg op til fem øvelser til din ekstra dag.</small></div>
+            <button className="primary" disabled={extraDraft.length === 0} onClick={() => setView("extraBuilder")}>Sammensæt dagen</button>
+          </div>
+          <button className="secondary" onClick={() => setView("today")}>Tilbage til dagens træning</button>
+        </section>
+      )}
+
+      {view === "extraBuilder" && (
+        <section className="screen enter">
+          <button className="back" onClick={() => setView("library")}>← Tilbage til biblioteket</button>
+          <p className="eyebrow">EKSTRA TRÆNINGSDAG</p>
+          <h1>Sammensæt din dag.</h1>
+          <p className="lede">Tilpas træningsmængden, så den passer til formålet med dagen.</p>
+          <label className="day-name-field">NAVN PÅ DAGEN<input value={extraDayName} onChange={(event) => setExtraDayName(event.target.value)} maxLength={36} /></label>
+          <div className="builder-exercises">
+            {extraDraft.map((exercise, index) => (
+              <article className="builder-exercise" key={exercise.name}>
+                <div className="builder-exercise-head">
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <div><strong>{exercise.name}</strong><small>{exercise.focus}</small></div>
+                  <button aria-label={`Fjern ${exercise.name}`} onClick={() => setExtraDraft((current) => current.filter((item) => item.name !== exercise.name))}>×</button>
+                </div>
+                <div className="prescription-inputs">
+                  <label>SÆT<input inputMode="numeric" value={exercise.sets} onChange={(event) => updateExtraExercise(exercise.name, "sets", event.target.value)} /></label>
+                  <label>REPS<input inputMode="text" value={exercise.reps} onChange={(event) => updateExtraExercise(exercise.name, "reps", event.target.value)} /></label>
+                  <label>VÆGT<input inputMode="decimal" value={exercise.weight} onChange={(event) => updateExtraExercise(exercise.name, "weight", event.target.value)} /><span>kg</span></label>
+                </div>
               </article>
             ))}
           </div>
-          <button className="secondary" onClick={() => setView("today")}>Tilbage til dagens træning</button>
+          <article className="extra-day-totals">
+            <div><strong>{extraDraft.length}</strong><span>øvelser</span></div>
+            <div><strong>{extraTotals.sets}</strong><span>arbejdssæt</span></div>
+            <div><strong>{extraTotals.volume.toLocaleString("da-DK")} kg</strong><span>samlet volumen</span></div>
+          </article>
+          <button className="primary" disabled={extraDraft.length === 0} onClick={saveExtraDay}>Gem ekstra træningsdag</button>
+        </section>
+      )}
+
+      {view === "extraDay" && (
+        <section className="screen enter">
+          <button className="back" onClick={() => setView("today")}>← Tilbage</button>
+          <p className="eyebrow">DIN EKSTRA DAG</p>
+          <h1>{savedExtraDayName}</h1>
+          <p className="lede">En fleksibel træningsdag sammensat fra øvelsesbiblioteket.</p>
+          <article className="extra-day-totals">
+            <div><strong>{extraDay.length}</strong><span>øvelser</span></div>
+            <div><strong>{savedExtraTotals.sets}</strong><span>arbejdssæt</span></div>
+            <div><strong>{savedExtraTotals.volume.toLocaleString("da-DK")} kg</strong><span>samlet volumen</span></div>
+          </article>
+          <div className="exercise-list extra-day-list">
+            {extraDay.map((exercise, index) => (
+              <div className="exercise" key={exercise.name}>
+                <span className="exercise-number">{String(index + 1).padStart(2, "0")}</span>
+                <div><strong>{exercise.name}</strong><small>{exercise.sets} × {exercise.reps} · {exercise.weight} kg</small></div>
+              </div>
+            ))}
+          </div>
+          <button className="primary" onClick={() => startSession(false, extraDayPlan)}>Start ekstra træning</button>
+          <button className="secondary" onClick={editExtraDay}>Redigér dagen</button>
         </section>
       )}
 
@@ -226,7 +405,7 @@ export default function Home() {
       {view === "session" && (
         <section className="screen enter session-screen">
           <div className="live-row"><span className="live-dot" /> TRÆNING I GANG <small>{completedSets} / {totalPlannedSets} sæt</small></div>
-          <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {todayExercises.length}</p>
+          <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
           {adjusted && exerciseIndex === 0 && <div className="adjusted-note"><span>↘</span><div><strong>Tilpasset fra 70 kg</strong><small>Readiness · gul</small></div><button onClick={() => { setAdjusted(false); setWeight("70"); }}>Fortryd</button></div>}
@@ -270,7 +449,7 @@ export default function Home() {
           <p className="eyebrow">SESSION AFSLUTTET</p>
           <h1>Godt arbejde.</h1>
           <p className="lede">Du gennemførte prototypeflowet.</p>
-          <article className="summary-card"><div><strong>{completedSets}</strong><span>sæt logget</span></div><div><strong>3</strong><span>øvelser</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
+          <article className="summary-card"><div><strong>{completedSets}</strong><span>sæt logget</span></div><div><strong>{sessionPlan.length}</strong><span>øvelser</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
           <div className="test-question"><strong>Hjælp os med at gøre BASE bedre</strong><p>Besvar 10 korte spørgsmål om denne session. Det tager cirka ét minut.</p></div>
           <button className="primary" onClick={() => openFeedback("session")}>Giv feedback på træningen</button>
           <button className="secondary" onClick={reset}>Spring over og start forfra</button>

@@ -15,6 +15,11 @@ test("keeps the BASE dashboard and both feedback entry points", async () => {
   assert.match(page, /TESTSVAR GEMMES/);
   assert.match(page, /totalPlannedSets/);
   assert.match(page, /setIndex \+ 1 < currentExercise\.sets/);
+  assert.match(page, /Sammensæt ekstra træningsdag/);
+  assert.match(page, /toggleExtraExercise/);
+  assert.match(page, /extraBuilder/);
+  assert.match(page, /Start ekstra træning/);
+  assert.match(page, /sessionPlan/);
   assert.match(page, /Næste øvelse/);
   assert.match(page, /Afslut træning/);
 
