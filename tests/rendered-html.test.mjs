@@ -13,6 +13,10 @@ test("keeps the BASE dashboard and both feedback entry points", async () => {
   assert.match(page, /Afslutter du testperioden\?/);
   assert.match(page, /Giv feedback på træningen/);
   assert.match(page, /TESTSVAR GEMMES/);
+  assert.match(page, /totalPlannedSets/);
+  assert.match(page, /setIndex \+ 1 < currentExercise\.sets/);
+  assert.match(page, /Næste øvelse/);
+  assert.match(page, /Afslut træning/);
 
   assert.match(feedbackForm, /TESTFEEDBACK · 1 MIN/);
   assert.match(feedbackForm, /AFSLUTTENDE EVALUERING · 5–7 MIN/);

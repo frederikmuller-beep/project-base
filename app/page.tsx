@@ -6,10 +6,12 @@ import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks";
 
 const todayExercises = [
-  { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen" },
-  { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse" },
-  { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk" },
+  { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen", sets: 6, plannedReps: "2", defaultWeight: "70" },
+  { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse", sets: 5, plannedReps: "1+1", defaultWeight: "95" },
+  { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk", sets: 4, plannedReps: "3", defaultWeight: "105" },
 ];
+
+const totalPlannedSets = todayExercises.reduce((total, exercise) => total + exercise.sets, 0);
 
 const exerciseLibrary = [
   { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse" },
@@ -34,11 +36,16 @@ export default function Home() {
   const [soreness, setSoreness] = useState(3);
   const [pain, setPain] = useState(false);
   const [adjusted, setAdjusted] = useState(false);
-  const [logged, setLogged] = useState(false);
-  const [weight, setWeight] = useState("65");
+  const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [setIndex, setSetIndex] = useState(0);
+  const [completedSets, setCompletedSets] = useState(0);
+  const [setSaved, setSetSaved] = useState(false);
+  const [weight, setWeight] = useState("70");
   const [reps, setReps] = useState("2");
   const [rpe, setRpe] = useState("7");
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
+  const currentExercise = todayExercises[exerciseIndex];
+  const nextExercise = todayExercises[exerciseIndex + 1];
 
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind);
@@ -54,7 +61,46 @@ export default function Home() {
 
   const reset = () => {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
-    setAdjusted(false); setLogged(false); setWeight("65"); setReps("2"); setRpe("7");
+    setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
+    setSetSaved(false); setWeight("70"); setReps("2"); setRpe("7");
+  };
+
+  const startSession = (useAdjustment: boolean) => {
+    setAdjusted(useAdjustment);
+    setExerciseIndex(0);
+    setSetIndex(0);
+    setCompletedSets(0);
+    setSetSaved(false);
+    setWeight(useAdjustment ? "65" : todayExercises[0].defaultWeight);
+    setReps(todayExercises[0].plannedReps);
+    setRpe("7");
+    setView("session");
+  };
+
+  const saveCurrentSet = () => {
+    if (setSaved) return;
+    setCompletedSets((count) => count + 1);
+    setSetSaved(true);
+  };
+
+  const advanceSession = () => {
+    if (setIndex + 1 < currentExercise.sets) {
+      setSetIndex((index) => index + 1);
+      setSetSaved(false);
+      return;
+    }
+
+    if (nextExercise) {
+      setExerciseIndex((index) => index + 1);
+      setSetIndex(0);
+      setSetSaved(false);
+      setWeight(nextExercise.defaultWeight);
+      setReps(nextExercise.plannedReps);
+      setRpe("7");
+      return;
+    }
+
+    setView("complete");
   };
 
   return (
@@ -100,7 +146,7 @@ export default function Home() {
             <span><strong>Udforsk øvelsesbiblioteket</strong><small>13 øvelser · 7 kategorier</small></span>
             <b>→</b>
           </button>
-          <button className="primary" onClick={() => setView("session")}>Start træning</button>
+          <button className="primary" onClick={() => startSession(false)}>Start træning</button>
           <article className="feedback-entry">
             <span className="feedback-entry-icon">◎</span>
             <div>
@@ -171,31 +217,50 @@ export default function Home() {
             <div className="weight-change"><div><small>Planlagt snatch</small><strong>70 kg</strong></div><span>→</span><div><small>Foreslået</small><strong>{pain ? "—" : readiness.level === "Grøn" ? "70 kg" : "65 kg"}</strong></div></div>
             <p>Du kan altid se den oprindelige plan og ændre beslutningen.</p>
           </article>
-          {!pain && <button className="primary" onClick={() => { setAdjusted(readiness.level !== "Grøn"); setView("session"); }}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
-          <button className="secondary" onClick={() => { setAdjusted(false); setView("session"); }}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
+          {!pain && <button className="primary" onClick={() => startSession(readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
+          <button className="secondary" onClick={() => startSession(false)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
           <p className="safety">BASE giver træningsstøtte – ikke medicinsk rådgivning.</p>
         </section>
       )}
 
       {view === "session" && (
         <section className="screen enter session-screen">
-          <div className="live-row"><span className="live-dot" /> TRÆNING I GANG <small>00:12</small></div>
-          <p className="eyebrow">ØVELSE 1 AF 3</p>
-          <h1>Snatch</h1>
-          <p className="lede">Rolig fra gulv, aggressiv under stangen.</p>
-          {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Tilpasset fra 70 kg</strong><small>Readiness · gul</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
-          <div className="set-progress">{[1,2,3,4,5,6].map(n => <span key={n} className={logged && n === 1 ? "done" : n === 1 ? "current" : ""}>{n}</span>)}</div>
+          <div className="live-row"><span className="live-dot" /> TRÆNING I GANG <small>{completedSets} / {totalPlannedSets} sæt</small></div>
+          <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {todayExercises.length}</p>
+          <h1>{currentExercise.name}</h1>
+          <p className="lede">{currentExercise.focus}.</p>
+          {adjusted && exerciseIndex === 0 && <div className="adjusted-note"><span>↘</span><div><strong>Tilpasset fra 70 kg</strong><small>Readiness · gul</small></div><button onClick={() => { setAdjusted(false); setWeight("70"); }}>Fortryd</button></div>}
+          <div className="set-progress" style={{ gridTemplateColumns: `repeat(${currentExercise.sets}, 1fr)` }}>
+            {Array.from({ length: currentExercise.sets }, (_, index) => (
+              <span key={index} className={index < setIndex || (index === setIndex && setSaved) ? "done" : index === setIndex ? "current" : ""}>{index + 1}</span>
+            ))}
+          </div>
           <article className="log-card">
-            <div className="set-heading"><span>SÆT 1</span><strong>2 reps</strong></div>
+            <div className="set-heading"><span>SÆT {setIndex + 1} AF {currentExercise.sets}</span><strong>{currentExercise.plannedReps} reps</strong></div>
             <div className="inputs">
-              <label>VÆGT<input inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} /><span>kg</span></label>
-              <label>REPS<input inputMode="numeric" value={reps} onChange={e => setReps(e.target.value)} /></label>
-              <label>RPE<input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} /></label>
+              <label>VÆGT<input inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} disabled={setSaved} /><span>kg</span></label>
+              <label>REPS<input inputMode="text" value={reps} onChange={e => setReps(e.target.value)} disabled={setSaved} /></label>
+              <label>RPE<input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} /></label>
             </div>
-            {!logged ? <button className="primary" onClick={() => setLogged(true)}>Gem sæt</button> : <div className="saved">✓ Sæt gemt · {weight} kg × {reps} @ RPE {rpe}</div>}
+            {!setSaved ? (
+              <button className="primary" onClick={saveCurrentSet}>Gem sæt</button>
+            ) : (
+              <>
+                <div className="saved">✓ Sæt gemt · {weight} kg × {reps} @ RPE {rpe}</div>
+                <button className="primary next-set-button" onClick={advanceSession}>
+                  {nextExercise === undefined && setIndex + 1 === currentExercise.sets
+                    ? "Afslut træning"
+                    : setIndex + 1 === currentExercise.sets
+                      ? `Næste øvelse · ${nextExercise?.name}`
+                      : `Fortsæt til sæt ${setIndex + 2}`}
+                </button>
+              </>
+            )}
           </article>
-          <div className="next-exercise"><span>NÆSTE</span><strong>Clean & Jerk · 5 × 1+1</strong></div>
-          {logged && <button className="primary" onClick={() => setView("complete")}>Afslut testtræning</button>}
+          <div className="next-exercise">
+            <span>{nextExercise ? "NÆSTE ØVELSE" : "SIDSTE ØVELSE"}</span>
+            <strong>{nextExercise ? `${nextExercise.name} · ${nextExercise.detail}` : `${totalPlannedSets - completedSets} sæt tilbage`}</strong>
+          </div>
         </section>
       )}
 
@@ -205,7 +270,7 @@ export default function Home() {
           <p className="eyebrow">SESSION AFSLUTTET</p>
           <h1>Godt arbejde.</h1>
           <p className="lede">Du gennemførte prototypeflowet.</p>
-          <article className="summary-card"><div><strong>1</strong><span>sæt logget</span></div><div><strong>{weight} kg</strong><span>snatch</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
+          <article className="summary-card"><div><strong>{completedSets}</strong><span>sæt logget</span></div><div><strong>3</strong><span>øvelser</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
           <div className="test-question"><strong>Hjælp os med at gøre BASE bedre</strong><p>Besvar 10 korte spørgsmål om denne session. Det tager cirka ét minut.</p></div>
           <button className="primary" onClick={() => openFeedback("session")}>Giv feedback på træningen</button>
           <button className="secondary" onClick={reset}>Spring over og start forfra</button>
