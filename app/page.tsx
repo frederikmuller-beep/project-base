@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 
-type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete";
+type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks";
 
 const todayExercises = [
   { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen" },
@@ -37,6 +38,12 @@ export default function Home() {
   const [weight, setWeight] = useState("65");
   const [reps, setReps] = useState("2");
   const [rpe, setRpe] = useState("7");
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
+
+  const openFeedback = (kind: FeedbackKind) => {
+    setFeedbackKind(kind);
+    setView("feedback");
+  };
 
   const readiness = useMemo(() => {
     if (pain) return { level: "Rød", className: "red", score: 38, text: "Pause tunge løft", reason: "Du har angivet smerte. BASE ændrer ikke din plan automatisk." };
@@ -94,6 +101,14 @@ export default function Home() {
             <b>→</b>
           </button>
           <button className="primary" onClick={() => setView("session")}>Start træning</button>
+          <article className="feedback-entry">
+            <span className="feedback-entry-icon">◎</span>
+            <div>
+              <strong>Afslutter du testperioden?</strong>
+              <small>Del din samlede oplevelse på 5–7 minutter.</small>
+            </div>
+            <button onClick={() => openFeedback("final")}>Åbn</button>
+          </article>
         </section>
       )}
 
@@ -187,16 +202,39 @@ export default function Home() {
       {view === "complete" && (
         <section className="screen complete-screen enter">
           <div className="checkmark">✓</div>
-          <p className="eyebrow">SESSION GEMT</p>
+          <p className="eyebrow">SESSION AFSLUTTET</p>
           <h1>Godt arbejde.</h1>
           <p className="lede">Du gennemførte prototypeflowet.</p>
           <article className="summary-card"><div><strong>1</strong><span>sæt logget</span></div><div><strong>{weight} kg</strong><span>snatch</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
-          <div className="test-question"><strong>Hvad forventede du skulle ske nu?</strong><p>Fortæl testlederen, hvad du ville gøre som det næste i en rigtig træning.</p></div>
-          <button className="primary" onClick={reset}>Start prototypen forfra</button>
+          <div className="test-question"><strong>Hjælp os med at gøre BASE bedre</strong><p>Besvar 10 korte spørgsmål om denne session. Det tager cirka ét minut.</p></div>
+          <button className="primary" onClick={() => openFeedback("session")}>Giv feedback på træningen</button>
+          <button className="secondary" onClick={reset}>Spring over og start forfra</button>
         </section>
       )}
 
-      <footer className="prototype-label">INTERAKTIV PROTOTYPE · DATA GEMMES IKKE</footer>
+      {view === "feedback" && (
+        <FeedbackForm
+          kind={feedbackKind}
+          onBack={() => setView(feedbackKind === "session" ? "complete" : "today")}
+          onDone={() => setView("feedbackThanks")}
+        />
+      )}
+
+      {view === "feedbackThanks" && (
+        <section className="screen complete-screen enter">
+          <div className="checkmark">✓</div>
+          <p className="eyebrow">SVAR MODTAGET</p>
+          <h1>Tak for din feedback.</h1>
+          <p className="lede">Dit svar er gemt og bruges til at prioritere den næste version af BASE.</p>
+          <article className="feedback-confirmation">
+            <strong>{feedbackKind === "session" ? "Sessionen er evalueret" : "Testperioden er evalueret"}</strong>
+            <span>Du har ikke delt navn eller følsomme helbredsoplysninger.</span>
+          </article>
+          <button className="primary" onClick={reset}>Tilbage til forsiden</button>
+        </section>
+      )}
+
+      <footer className="prototype-label">INTERAKTIV PROTOTYPE · TESTSVAR GEMMES</footer>
     </main>
   );
 }
