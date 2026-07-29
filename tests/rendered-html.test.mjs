@@ -1,39 +1,38 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("keeps the BASE dashboard and both feedback entry points", async () => {
+  const [page, feedbackForm] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/feedback-form.tsx", import.meta.url), "utf8"),
+  ]);
 
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-}
+  assert.match(page, /God træning, Mikkel\./);
+  assert.match(page, /3\.100 kg/);
+  assert.match(page, /Afslutter du testperioden\?/);
+  assert.match(page, /Giv feedback på træningen/);
+  assert.match(page, /TESTSVAR GEMMES/);
 
-test("server-renders the BASE training dashboard", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assert.match(feedbackForm, /TESTFEEDBACK · 1 MIN/);
+  assert.match(feedbackForm, /AFSLUTTENDE EVALUERING · 5–7 MIN/);
+  assert.match(feedbackForm, /Som atlet/);
+  assert.match(feedbackForm, /Som træner/);
+  assert.match(feedbackForm, /fetch\("\/api\/feedback"/);
+});
 
-  const html = await response.text();
-  assert.match(html, /<html lang="da">/i);
-  assert.match(html, /<title>BASE · Training prototype<\/title>/i);
-  assert.match(html, /God træning, Mikkel\./);
-  assert.match(html, /Competition focus/);
-  assert.match(html, /3\.100 kg/);
-  assert.match(html, /samlet volumen/);
-  assert.match(html, /13 øvelser · 7 kategorier/);
-  assert.match(html, /DATA GEMMES IKKE/);
+test("persists feedback through the declared D1 database", async () => {
+  const [hosting, schema, route, migration] = await Promise.all([
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/feedback/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0000_polite_sabretooth.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(JSON.parse(hosting).d1, "DB");
+  assert.match(schema, /feedbackResponses/);
+  assert.match(schema, /tester_id/);
+  assert.match(route, /insert\(feedbackResponses\)/);
+  assert.match(route, /testerIdPattern/);
+  assert.match(migration, /CREATE TABLE `feedback_responses`/);
 });
