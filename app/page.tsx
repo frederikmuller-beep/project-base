@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
+import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 
 type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
@@ -86,6 +87,7 @@ export default function Home() {
   const [savedExtraDayName, setSavedExtraDayName] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
+  const [videoExercise, setVideoExercise] = useState<string | null>(null);
   const currentExercise = sessionPlan[exerciseIndex];
   const nextExercise = sessionPlan[exerciseIndex + 1];
   const totalPlannedSets = useMemo(
@@ -128,6 +130,7 @@ export default function Home() {
       return matchesCategory && (!query || searchableText.includes(query));
     });
   }, [libraryCategory, librarySearch]);
+  const selectedVideo = videoExercise ? exerciseVideos[videoExercise] : undefined;
 
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind);
@@ -264,6 +267,7 @@ export default function Home() {
               <div className="exercise" key={exercise.name}>
                 <span className="exercise-number">0{index + 1}</span>
                 <div><strong>{exercise.name}</strong><small>{exercise.detail}</small></div>
+                <button className="exercise-video-button" aria-label={`Se video for ${exercise.name}`} onClick={() => setVideoExercise(exercise.name)}>▶</button>
               </div>
             ))}
           </div>
@@ -323,7 +327,14 @@ export default function Home() {
                 </div>
                 {day.exercises.length > 0 && (
                   <div className="week-exercises">
-                    {day.exercises.map((exercise) => <span key={exercise}>{exercise}</span>)}
+                    {day.exercises.map((exercise) => {
+                      const exerciseName = exercise.split(" · ")[0];
+                      return (
+                        <button key={exercise} onClick={() => setVideoExercise(exerciseName)}>
+                          <span>{exercise}</span><b>{exerciseVideos[exerciseName] ? "▶" : "⌕"}</b>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {day.status === "today" && <button onClick={() => setView("today")}>Åbn dagens træning →</button>}
@@ -350,8 +361,9 @@ export default function Home() {
           <div className="library-summary">
             <div><strong>{exerciseLibrary.length}</strong><span>øvelser</span></div>
             <div><strong>{libraryCategories.length - 1}</strong><span>kategorier</span></div>
-            <div><strong>77</strong><span>nye muligheder</span></div>
+            <div><strong>{Object.keys(exerciseVideos).length}</strong><span>testvideoer</span></div>
           </div>
+          <div className="video-library-note"><span>▶</span><p><strong>Videoafprøvning</strong> Centrale øvelser har en integreret teknikvideo. Resten åbner en målrettet YouTube-søgning.</p></div>
           <div className="library-tools">
             <label className="library-search">
               <span>SØG I BIBLIOTEKET</span>
@@ -385,6 +397,9 @@ export default function Home() {
                   <h3>{exercise.name}</h3>
                   <p>{exercise.target}</p>
                   <small><b>Fokus:</b> {exercise.cue}</small>
+                  <button className="watch-video" onClick={() => setVideoExercise(exercise.name)}>
+                    {exerciseVideos[exercise.name] ? "▶ Se teknikvideo" : "⌕ Find teknikvideo"}
+                  </button>
                 </div>
                 <button
                   className={selected ? "selected" : ""}
@@ -457,6 +472,7 @@ export default function Home() {
               <div className="exercise" key={exercise.name}>
                 <span className="exercise-number">{String(index + 1).padStart(2, "0")}</span>
                 <div><strong>{exercise.name}</strong><small>{exercise.sets} × {exercise.reps} · {exercise.weight} kg</small></div>
+                <button className="exercise-video-button" aria-label={`Se video for ${exercise.name}`} onClick={() => setVideoExercise(exercise.name)}>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</button>
               </div>
             ))}
           </div>
@@ -507,6 +523,10 @@ export default function Home() {
           <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
+          <button className="session-video-button" onClick={() => setVideoExercise(currentExercise.name)}>
+            <span>{exerciseVideos[currentExercise.name] ? "▶" : "⌕"}</span>
+            <span><strong>{exerciseVideos[currentExercise.name] ? "Se teknikvideo" : "Find teknikvideo"}</strong><small>Åbnes uden at nulstille træningen</small></span>
+          </button>
           {adjusted && exerciseIndex === 0 && <div className="adjusted-note"><span>↘</span><div><strong>Tilpasset fra 70 kg</strong><small>Readiness · gul</small></div><button onClick={() => { setAdjusted(false); setWeight("70"); }}>Fortryd</button></div>}
           <div className="set-progress" style={{ gridTemplateColumns: `repeat(${currentExercise.sets}, 1fr)` }}>
             {Array.from({ length: currentExercise.sets }, (_, index) => (
@@ -575,6 +595,42 @@ export default function Home() {
           </article>
           <button className="primary" onClick={reset}>Tilbage til forsiden</button>
         </section>
+      )}
+
+      {videoExercise && (
+        <div className="video-overlay" onClick={() => setVideoExercise(null)}>
+          <article className="video-dialog" role="dialog" aria-modal="true" aria-labelledby="video-title" onClick={(event) => event.stopPropagation()}>
+            <div className="video-dialog-head">
+              <div><span>TEKNIKVIDEO · PROTOTYPE</span><h2 id="video-title">{videoExercise}</h2></div>
+              <button aria-label="Luk video" onClick={() => setVideoExercise(null)}>×</button>
+            </div>
+            {selectedVideo ? (
+              <div className="video-frame">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${selectedVideo.youtubeId}?rel=0&playsinline=1`}
+                  title={`${videoExercise} teknikvideo`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className="video-search-fallback">
+                <span>⌕</span>
+                <strong>Videoen er ikke udvalgt endnu</strong>
+                <p>Til testperioden kan du åbne en målrettet søgning og vælge den mest relevante demonstration.</p>
+              </div>
+            )}
+            <div className="video-dialog-actions">
+              {selectedVideo ? (
+                <a href={selectedVideo.sourceUrl} target="_blank" rel="noreferrer">Kilde: {selectedVideo.source} ↗</a>
+              ) : (
+                <a className="video-search-action" href={youtubeExerciseSearchUrl(videoExercise)} target="_blank" rel="noreferrer">Søg efter {videoExercise} på YouTube ↗</a>
+              )}
+            </div>
+            <p className="video-safety-note">Ekstern demonstration til prototypetest. Følg altid din træners anvisninger.</p>
+          </article>
+        </div>
       )}
 
       <footer className="prototype-label">INTERAKTIV PROTOTYPE · TESTSVAR GEMMES</footer>
