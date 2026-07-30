@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 
-type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
+type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
 type SessionExercise = {
   name: string;
@@ -25,11 +25,41 @@ type ExtraDayExercise = {
 
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 
+type WeekDay = {
+  day: string;
+  date: string;
+  status: "today" | "planned" | "recovery" | "rest";
+  title: string;
+  focus: string;
+  duration: number;
+  sets: number;
+  exercises: string[];
+};
+
 const todayExercises: SessionExercise[] = [
   { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen", sets: 6, plannedReps: "2", defaultWeight: "70" },
   { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse", sets: 5, plannedReps: "1+1", defaultWeight: "95" },
   { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk", sets: 4, plannedReps: "3", defaultWeight: "105" },
 ];
+
+const weekPlan: WeekDay[] = [
+  { day: "MANDAG", date: "27. JUL", status: "today", title: "Competition focus", focus: "Teknisk kvalitet under moderat belastning", duration: 80, sets: 15, exercises: ["Snatch · 6 × 2", "Clean & Jerk · 5 × 1+1", "Front squat · 4 × 3"] },
+  { day: "TIRSDAG", date: "28. JUL", status: "recovery", title: "Aktiv restitution", focus: "Bevægelse, mobilitet og rolig coretræning", duration: 35, sets: 6, exercises: ["Cykel · 15 min", "Hofte- og ankelmobilitet · 3 runder", "Dead bug · 3 × 8"] },
+  { day: "ONSDAG", date: "29. JUL", status: "planned", title: "Snatch technique", focus: "Timing fra hæng og stabil overheadposition", duration: 70, sets: 14, exercises: ["Power snatch · 5 × 2", "Hang snatch · 4 × 3", "Snatch pull · 3 × 3", "Overhead squat · 2 × 5"] },
+  { day: "TORSDAG", date: "30. JUL", status: "rest", title: "Hviledag", focus: "Søvn, mad og let bevægelse efter behov", duration: 0, sets: 0, exercises: [] },
+  { day: "FREDAG", date: "31. JUL", status: "planned", title: "Clean & jerk power", focus: "Stabil modtagelse og kraftfuldt ben-drive", duration: 85, sets: 16, exercises: ["Clean & Jerk · 5 × 1+1", "Clean pull · 4 × 3", "Front squat · 4 × 3", "Push jerk · 3 × 3"] },
+  { day: "LØRDAG", date: "1. AUG", status: "planned", title: "Strength base", focus: "Benstyrke, bagkæde og overheadkapacitet", duration: 75, sets: 14, exercises: ["Back squat · 5 × 5", "Strict press · 4 × 6", "Romanian deadlift · 3 × 8", "Plank · 2 × 30 sek"] },
+  { day: "SØNDAG", date: "2. AUG", status: "rest", title: "Hviledag", focus: "Fuld restitution før næste træningsuge", duration: 0, sets: 0, exercises: [] },
+];
+
+const weekTotals = weekPlan.reduce(
+  (totals, day) => ({
+    sessions: totals.sessions + (day.duration > 0 ? 1 : 0),
+    minutes: totals.minutes + day.duration,
+    sets: totals.sets + day.sets,
+  }),
+  { sessions: 0, minutes: 0, sets: 0 },
+);
 
 const countReps = (value: string) =>
   value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
@@ -222,6 +252,12 @@ export default function Home() {
             <b>→</b>
           </button>
 
+          <button className="week-entry" onClick={() => setView("week")}>
+            <span className="week-entry-date"><strong>31</strong><small>UGE</small></span>
+            <span><strong>Se kommende uges program</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
+            <b>→</b>
+          </button>
+
           <div className="section-head"><h3>Dagens plan</h3><span>3 øvelser</span></div>
           <div className="exercise-list">
             {todayExercises.map((exercise, index) => (
@@ -258,6 +294,50 @@ export default function Home() {
             </div>
             <button onClick={() => openFeedback("final")}>Åbn</button>
           </article>
+        </section>
+      )}
+
+      {view === "week" && (
+        <section className="screen enter">
+          <button className="back" onClick={() => setView("today")}>← Tilbage</button>
+          <p className="eyebrow">UGE 31 · 27. JUL – 2. AUG</p>
+          <h1>Din kommende uge.</h1>
+          <p className="lede">Se træning, restitution og fokus for hver dag, før ugen går i gang.</p>
+          <article className="week-summary">
+            <div><strong>{weekTotals.sessions}</strong><span>planlagte pas</span></div>
+            <div><strong>{weekTotals.minutes}</strong><span>minutter</span></div>
+            <div><strong>{weekTotals.sets}</strong><span>arbejdssæt</span></div>
+          </article>
+          <div className="week-list">
+            {weekPlan.map((day) => (
+              <article className={`week-day ${day.status}`} key={day.day}>
+                <div className="week-day-head">
+                  <div className="week-date"><strong>{day.day}</strong><span>{day.date}</span></div>
+                  <span className={`week-status ${day.status}`}>
+                    {day.status === "today" ? "I DAG" : day.status === "rest" ? "HVILE" : day.status === "recovery" ? "REST." : "PLANLAGT"}
+                  </span>
+                </div>
+                <div className="week-day-title">
+                  <div><h3>{day.title}</h3><p>{day.focus}</p></div>
+                  {day.duration > 0 && <strong>{day.duration} min</strong>}
+                </div>
+                {day.exercises.length > 0 && (
+                  <div className="week-exercises">
+                    {day.exercises.map((exercise) => <span key={exercise}>{exercise}</span>)}
+                  </div>
+                )}
+                {day.status === "today" && <button onClick={() => setView("today")}>Åbn dagens træning →</button>}
+              </article>
+            ))}
+          </div>
+          {extraDay.length > 0 && (
+            <article className="week-extra-day">
+              <span>＋</span>
+              <div><strong>{savedExtraDayName}</strong><small>Din ekstra dag · {extraDay.length} øvelser · {savedExtraTotals.sets} sæt</small></div>
+              <button onClick={() => setView("extraDay")}>Se dag</button>
+            </article>
+          )}
+          <p className="week-note">Planen er et prototypeeksempel. Readiness kan stadig bruges til at tilpasse dagens belastning.</p>
         </section>
       )}
 
