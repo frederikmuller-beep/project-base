@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("keeps the BASE dashboard and both feedback entry points", async () => {
-  const [page, feedbackForm] = await Promise.all([
+  const [page, feedbackForm, exerciseData] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/feedback-form.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/exercise-data.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /God træning, Mikkel\./);
@@ -20,6 +21,8 @@ test("keeps the BASE dashboard and both feedback entry points", async () => {
   assert.match(page, /extraBuilder/);
   assert.match(page, /Start ekstra træning/);
   assert.match(page, /sessionPlan/);
+  assert.match(page, /filteredExercises/);
+  assert.match(page, /librarySearch/);
   assert.match(page, /Næste øvelse/);
   assert.match(page, /Afslut træning/);
 
@@ -28,6 +31,12 @@ test("keeps the BASE dashboard and both feedback entry points", async () => {
   assert.match(feedbackForm, /Som atlet/);
   assert.match(feedbackForm, /Som træner/);
   assert.match(feedbackForm, /fetch\("\/api\/feedback"/);
+
+  const exerciseRows = exerciseData.split("\n").filter((line) => line.startsWith("  { name:"));
+  const exerciseNames = exerciseRows.map((line) => line.match(/name: "([^"]+)"/)?.[1]);
+  assert.equal(exerciseRows.length, 90);
+  assert.equal(new Set(exerciseNames).size, 90);
+  assert.ok(exerciseRows.every((line) => /sets: "[^"]+", reps: "[^"]+", weight: "[^"]+"/.test(line)));
 });
 
 test("persists feedback through the declared D1 database", async () => {

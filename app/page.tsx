@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 
 type View = "today" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
@@ -22,43 +23,13 @@ type ExtraDayExercise = {
   weight: string;
 };
 
+type LibraryCategory = "Alle" | ExerciseDefinition["category"];
+
 const todayExercises: SessionExercise[] = [
   { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen", sets: 6, plannedReps: "2", defaultWeight: "70" },
   { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse", sets: 5, plannedReps: "1+1", defaultWeight: "95" },
   { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk", sets: 4, plannedReps: "3", defaultWeight: "105" },
 ];
-
-const exerciseLibrary = [
-  { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse" },
-  { name: "Hang snatch", category: "Snatch", target: "Timing · eksplosivitet", cue: "Hold spændingen over knæet" },
-  { name: "Power snatch", category: "Snatch", target: "Hastighed · træk", cue: "Modtag stangen højt og stabilt" },
-  { name: "Snatch balance", category: "Snatch", target: "Modtagelse · fodarbejde", cue: "Pres aktivt op mod stangen" },
-  { name: "Clean & Jerk", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Stabil clean før et roligt dip" },
-  { name: "Hang clean", category: "Clean", target: "Position · turnover", cue: "Afslut benene før albuerne" },
-  { name: "Power clean", category: "Clean", target: "Eksplosivitet · hastighed", cue: "Mød stangen – lad den ikke falde" },
-  { name: "Push jerk", category: "Jerk", target: "Ben-drive · timing", cue: "Lodret dip og hurtig lockout" },
-  { name: "Front squat", category: "Squat", target: "Ben · core", cue: "Albuer højt gennem hele løftet" },
-  { name: "Back squat", category: "Squat", target: "Maksimal benstyrke", cue: "Stabil bracing og ensartet dybde" },
-  { name: "Snatch pull", category: "Træk", target: "Ryg · position · kraft", cue: "Bevar skuldrene over stangen" },
-  { name: "Clean pull", category: "Træk", target: "Ben · ryg · kraft", cue: "Skub gulvet væk og afslut lodret" },
-  { name: "Strict press", category: "Assistance", target: "Skuldre · lockout", cue: "Spænd balder og hold ribben nede" },
-];
-
-const extraDayDefaults: Record<string, Pick<ExtraDayExercise, "sets" | "reps" | "weight">> = {
-  "Snatch": { sets: "5", reps: "2", weight: "60" },
-  "Hang snatch": { sets: "4", reps: "3", weight: "50" },
-  "Power snatch": { sets: "5", reps: "2", weight: "55" },
-  "Snatch balance": { sets: "4", reps: "3", weight: "45" },
-  "Clean & Jerk": { sets: "5", reps: "1+1", weight: "80" },
-  "Hang clean": { sets: "4", reps: "3", weight: "70" },
-  "Power clean": { sets: "5", reps: "2", weight: "75" },
-  "Push jerk": { sets: "5", reps: "3", weight: "70" },
-  "Front squat": { sets: "4", reps: "4", weight: "90" },
-  "Back squat": { sets: "5", reps: "5", weight: "110" },
-  "Snatch pull": { sets: "4", reps: "3", weight: "80" },
-  "Clean pull": { sets: "4", reps: "3", weight: "110" },
-  "Strict press": { sets: "4", reps: "6", weight: "40" },
-};
 
 const countReps = (value: string) =>
   value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
@@ -83,6 +54,8 @@ export default function Home() {
   const [extraDay, setExtraDay] = useState<ExtraDayExercise[]>([]);
   const [extraDayName, setExtraDayName] = useState("Teknik & styrke");
   const [savedExtraDayName, setSavedExtraDayName] = useState("");
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
   const currentExercise = sessionPlan[exerciseIndex];
   const nextExercise = sessionPlan[exerciseIndex + 1];
   const totalPlannedSets = useMemo(
@@ -113,6 +86,18 @@ export default function Home() {
     plannedReps: exercise.reps || "1",
     defaultWeight: exercise.weight || "0",
   })), [extraDay]);
+  const libraryCategories = useMemo<LibraryCategory[]>(
+    () => ["Alle", ...Array.from(new Set(exerciseLibrary.map((exercise) => exercise.category)))],
+    [],
+  );
+  const filteredExercises = useMemo(() => {
+    const query = librarySearch.trim().toLocaleLowerCase("da-DK");
+    return exerciseLibrary.filter((exercise) => {
+      const matchesCategory = libraryCategory === "Alle" || exercise.category === libraryCategory;
+      const searchableText = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.cue}`.toLocaleLowerCase("da-DK");
+      return matchesCategory && (!query || searchableText.includes(query));
+    });
+  }, [libraryCategory, librarySearch]);
 
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind);
@@ -172,13 +157,19 @@ export default function Home() {
     setView("complete");
   };
 
-  const toggleExtraExercise = (exercise: (typeof exerciseLibrary)[number]) => {
+  const toggleExtraExercise = (exercise: ExerciseDefinition) => {
     setExtraDraft((current) => {
       if (current.some((item) => item.name === exercise.name)) {
         return current.filter((item) => item.name !== exercise.name);
       }
       if (current.length >= 5) return current;
-      return [...current, { name: exercise.name, focus: exercise.cue, ...extraDayDefaults[exercise.name] }];
+      return [...current, {
+        name: exercise.name,
+        focus: exercise.cue,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        weight: exercise.weight,
+      }];
     });
   };
 
@@ -241,7 +232,7 @@ export default function Home() {
             ))}
           </div>
           <button className="library-link" onClick={() => setView("library")}>
-            <span><strong>Udforsk øvelsesbiblioteket</strong><small>13 øvelser · 7 kategorier</small></span>
+            <span><strong>Udforsk øvelsesbiblioteket</strong><small>{exerciseLibrary.length} øvelser · {libraryCategories.length - 1} kategorier</small></span>
             <b>→</b>
           </button>
           {extraDay.length === 0 ? (
@@ -277,12 +268,34 @@ export default function Home() {
           <h1>Variation med et formål.</h1>
           <p className="lede">Hver variation er koblet til et træningsmål og et enkelt teknisk fokus.</p>
           <div className="library-summary">
-            <div><strong>13</strong><span>øvelser</span></div>
-            <div><strong>7</strong><span>kategorier</span></div>
-            <div><strong>10</strong><span>variationer</span></div>
+            <div><strong>{exerciseLibrary.length}</strong><span>øvelser</span></div>
+            <div><strong>{libraryCategories.length - 1}</strong><span>kategorier</span></div>
+            <div><strong>77</strong><span>nye muligheder</span></div>
+          </div>
+          <div className="library-tools">
+            <label className="library-search">
+              <span>SØG I BIBLIOTEKET</span>
+              <input
+                type="search"
+                value={librarySearch}
+                onChange={(event) => setLibrarySearch(event.target.value)}
+                placeholder="Fx pause, squat eller jerk"
+              />
+            </label>
+            <div className="category-filters" aria-label="Filtrér øvelser efter kategori">
+              {libraryCategories.map((category) => (
+                <button
+                  key={category}
+                  className={libraryCategory === category ? "active" : ""}
+                  aria-pressed={libraryCategory === category}
+                  onClick={() => setLibraryCategory(category)}
+                >{category}</button>
+              ))}
+            </div>
+            <small className="library-result-count">{filteredExercises.length} øvelser vist</small>
           </div>
           <div className="library-list">
-            {exerciseLibrary.map((exercise, index) => {
+            {filteredExercises.map((exercise, index) => {
               const selected = extraDraft.some((item) => item.name === exercise.name);
               return (
               <article className={selected ? "library-exercise selected" : "library-exercise"} key={exercise.name}>
@@ -301,6 +314,12 @@ export default function Home() {
                 >{selected ? "✓" : "+"}</button>
               </article>
             );})}
+            {filteredExercises.length === 0 && (
+              <div className="library-empty">
+                <strong>Ingen øvelser matcher.</strong>
+                <span>Prøv et andet søgeord eller vælg kategorien Alle.</span>
+              </div>
+            )}
           </div>
           <div className="builder-dock">
             <div><strong>{extraDraft.length} / 5 øvelser valgt</strong><small>Vælg op til fem øvelser til din ekstra dag.</small></div>
