@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("keeps the BASE dashboard and both feedback entry points", async () => {
-  const [page, feedbackForm, exerciseData, exerciseVideoData] = await Promise.all([
+test("keeps the BASE dashboard, two-week plan and both feedback entry points", async () => {
+  const [page, programData, feedbackForm, exerciseData, exerciseVideoData] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/program-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/feedback-form.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-videos.ts", import.meta.url), "utf8"),
@@ -24,17 +25,26 @@ test("keeps the BASE dashboard and both feedback entry points", async () => {
   assert.match(page, /sessionPlan/);
   assert.match(page, /filteredExercises/);
   assert.match(page, /librarySearch/);
-  assert.match(page, /const weekPlan/);
-  assert.match(page, /Se kommende uges program/);
-  assert.match(page, /Din kommende uge/);
+  assert.match(page, /twoWeekPlan/);
+  assert.match(page, /Åbn testperiodens programmer/);
+  assert.match(page, /Dine næste to uger/);
   assert.match(page, /weekTotals\.sessions/);
+  assert.match(page, /startPlannedSession/);
+  assert.match(page, /\/api\/participant/);
+  assert.match(page, /\/api\/training/);
   assert.match(page, /youtube-nocookie\.com\/embed/);
   assert.match(page, /session-video-button/);
   assert.match(page, /youtubeExerciseSearchUrl/);
   assert.match(page, /TEKNIKVIDEO/);
-  assert.match(page, /Uge 31/i);
+  assert.match(page, /TESTPERIODE/);
   assert.match(page, /Næste øvelse/);
   assert.match(page, /Afslut træning/);
+
+  assert.equal((programData.match(/programId: "/g) ?? []).length, 11);
+  assert.equal((programData.match(/week: 1, day/g) ?? []).length, 7);
+  assert.equal((programData.match(/week: 2, day/g) ?? []).length, 7);
+  assert.match(programData, /w1-competition-focus/);
+  assert.match(programData, /w2-test-review/);
 
   assert.match(feedbackForm, /TESTFEEDBACK · 1 MIN/);
   assert.match(feedbackForm, /AFSLUTTENDE EVALUERING · 5–7 MIN/);
@@ -71,4 +81,26 @@ test("persists feedback through the declared D1 database", async () => {
   assert.match(route, /insert\(feedbackResponses\)/);
   assert.match(route, /testerIdPattern/);
   assert.match(migration, /CREATE TABLE `feedback_responses`/);
+});
+
+test("persists each tester's planned-session progress and set logs in D1", async () => {
+  const [schema, participantRoute, trainingRoute, testerSession, migration] = await Promise.all([
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/training/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/tester-session.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_dapper_quasimodo.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(schema, /trainingSessions/);
+  assert.match(schema, /trainingSetLogs/);
+  assert.match(schema, /idx_training_sessions_tester_program/);
+  assert.match(participantRoute, /setTesterId/);
+  assert.match(testerSession, /httpOnly: true/);
+  assert.match(testerSession, /sameSite: "lax"/);
+  assert.match(trainingRoute, /getTesterId/);
+  assert.match(trainingRoute, /insert\(trainingSetLogs\)/);
+  assert.match(trainingRoute, /completedSets >= plannedSets/);
+  assert.match(migration, /CREATE TABLE `training_sessions`/);
+  assert.match(migration, /CREATE TABLE `training_set_logs`/);
 });

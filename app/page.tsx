@@ -1,20 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
+import { countProgramSets, todayProgram, twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
 
 type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
-
-type SessionExercise = {
-  name: string;
-  detail: string;
-  focus: string;
-  sets: number;
-  plannedReps: string;
-  defaultWeight: string;
-};
 
 type ExtraDayExercise = {
   name: string;
@@ -26,44 +18,35 @@ type ExtraDayExercise = {
 
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 
-type WeekDay = {
-  day: string;
-  date: string;
-  status: "today" | "planned" | "recovery" | "rest";
-  title: string;
-  focus: string;
-  duration: number;
-  sets: number;
-  exercises: string[];
-};
+const todayExercises = todayProgram.exercises;
 
-const todayExercises: SessionExercise[] = [
-  { name: "Snatch", detail: "6 × 2 · 70 kg", focus: "Rolig fra gulv, aggressiv under stangen", sets: 6, plannedReps: "2", defaultWeight: "70" },
-  { name: "Clean & Jerk", detail: "5 × 1+1 · 95 kg", focus: "Stabil modtagelse", sets: 5, plannedReps: "1+1", defaultWeight: "95" },
-  { name: "Front squat", detail: "4 × 3 · 105 kg", focus: "Kontrolleret excentrisk", sets: 4, plannedReps: "3", defaultWeight: "105" },
-];
-
-const weekPlan: WeekDay[] = [
-  { day: "MANDAG", date: "27. JUL", status: "today", title: "Competition focus", focus: "Teknisk kvalitet under moderat belastning", duration: 80, sets: 15, exercises: ["Snatch · 6 × 2", "Clean & Jerk · 5 × 1+1", "Front squat · 4 × 3"] },
-  { day: "TIRSDAG", date: "28. JUL", status: "recovery", title: "Aktiv restitution", focus: "Bevægelse, mobilitet og rolig coretræning", duration: 35, sets: 6, exercises: ["Cykel · 15 min", "Hofte- og ankelmobilitet · 3 runder", "Dead bug · 3 × 8"] },
-  { day: "ONSDAG", date: "29. JUL", status: "planned", title: "Snatch technique", focus: "Timing fra hæng og stabil overheadposition", duration: 70, sets: 14, exercises: ["Power snatch · 5 × 2", "Hang snatch · 4 × 3", "Snatch pull · 3 × 3", "Overhead squat · 2 × 5"] },
-  { day: "TORSDAG", date: "30. JUL", status: "rest", title: "Hviledag", focus: "Søvn, mad og let bevægelse efter behov", duration: 0, sets: 0, exercises: [] },
-  { day: "FREDAG", date: "31. JUL", status: "planned", title: "Clean & jerk power", focus: "Stabil modtagelse og kraftfuldt ben-drive", duration: 85, sets: 16, exercises: ["Clean & Jerk · 5 × 1+1", "Clean pull · 4 × 3", "Front squat · 4 × 3", "Push jerk · 3 × 3"] },
-  { day: "LØRDAG", date: "1. AUG", status: "planned", title: "Strength base", focus: "Benstyrke, bagkæde og overheadkapacitet", duration: 75, sets: 14, exercises: ["Back squat · 5 × 5", "Strict press · 4 × 6", "Romanian deadlift · 3 × 8", "Plank · 2 × 30 sek"] },
-  { day: "SØNDAG", date: "2. AUG", status: "rest", title: "Hviledag", focus: "Fuld restitution før næste træningsuge", duration: 0, sets: 0, exercises: [] },
-];
-
-const weekTotals = weekPlan.reduce(
+const weekTotals = twoWeekPlan.reduce(
   (totals, day) => ({
     sessions: totals.sessions + (day.duration > 0 ? 1 : 0),
     minutes: totals.minutes + day.duration,
-    sets: totals.sets + day.sets,
+    sets: totals.sets + countProgramSets(day),
   }),
   { sessions: 0, minutes: 0, sets: 0 },
 );
 
 const countReps = (value: string) =>
   value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
+
+type SessionProgress = {
+  programId: string;
+  status: "active" | "completed";
+  completedSets: number;
+  plannedSets: number;
+};
+
+const positionFromCompletedSets = (plan: SessionExercise[], completedSets: number) => {
+  let remaining = completedSets;
+  for (let exerciseIndex = 0; exerciseIndex < plan.length; exerciseIndex += 1) {
+    if (remaining < plan[exerciseIndex].sets) return { exerciseIndex, setIndex: remaining };
+    remaining -= plan[exerciseIndex].sets;
+  }
+  return { exerciseIndex: Math.max(0, plan.length - 1), setIndex: Math.max(0, plan.at(-1)?.sets ?? 1) - 1 };
+};
 
 export default function Home() {
   const [view, setView] = useState<View>("today");
@@ -88,6 +71,14 @@ export default function Home() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
   const [videoExercise, setVideoExercise] = useState<string | null>(null);
+  const [testerId, setTesterId] = useState<string | null>(null);
+  const [testerInput, setTesterInput] = useState("");
+  const [identityLoading, setIdentityLoading] = useState(true);
+  const [identityError, setIdentityError] = useState("");
+  const [progress, setProgress] = useState<Record<string, SessionProgress>>({});
+  const [sessionProgramId, setSessionProgramId] = useState<string | null>(null);
+  const [savingSet, setSavingSet] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const currentExercise = sessionPlan[exerciseIndex];
   const nextExercise = sessionPlan[exerciseIndex + 1];
   const totalPlannedSets = useMemo(
@@ -132,6 +123,55 @@ export default function Home() {
   }, [libraryCategory, librarySearch]);
   const selectedVideo = videoExercise ? exerciseVideos[videoExercise] : undefined;
 
+  const loadProgress = async () => {
+    const response = await fetch("/api/training", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = (await response.json()) as { sessions?: SessionProgress[] };
+    setProgress(Object.fromEntries((data.sessions ?? []).map((session) => [session.programId, session])));
+  };
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/participant", { cache: "no-store" })
+      .then(async (response) => response.json() as Promise<{ testerId: string | null }>)
+      .then(async (data) => {
+        if (!active) return;
+        setTesterId(data.testerId);
+        if (data.testerId) await loadProgress();
+      })
+      .catch(() => undefined)
+      .finally(() => { if (active) setIdentityLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const connectTester = async () => {
+    setIdentityError("");
+    setIdentityLoading(true);
+    try {
+      const response = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ testerId: testerInput }),
+      });
+      const data = (await response.json()) as { testerId?: string; error?: string };
+      if (!response.ok || !data.testerId) throw new Error(data.error ?? "Tester-ID kunne ikke gemmes.");
+      setTesterId(data.testerId);
+      setTesterInput("");
+      await loadProgress();
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Tester-ID kunne ikke gemmes.");
+    } finally {
+      setIdentityLoading(false);
+    }
+  };
+
+  const disconnectTester = async () => {
+    await fetch("/api/participant", { method: "DELETE" });
+    setTesterId(null);
+    setProgress({});
+    setIdentityError("");
+  };
+
   const openFeedback = (kind: FeedbackKind) => {
     setFeedbackKind(kind);
     setView("feedback");
@@ -148,26 +188,91 @@ export default function Home() {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
     setSetSaved(false); setWeight("70"); setReps("2"); setRpe("7"); setSessionPlan(todayExercises);
+    setSessionProgramId(null); setSaveError("");
   };
 
-  const startSession = (useAdjustment: boolean, plan: SessionExercise[] = todayExercises) => {
+  const startSession = (
+    useAdjustment: boolean,
+    plan: SessionExercise[] = todayExercises,
+    programId: string | null = null,
+    alreadyCompleted = 0,
+  ) => {
     if (plan.length === 0) return;
+    const position = positionFromCompletedSets(plan, alreadyCompleted);
+    const openingExercise = plan[position.exerciseIndex];
     setSessionPlan(plan);
+    setSessionProgramId(programId);
     setAdjusted(useAdjustment);
-    setExerciseIndex(0);
-    setSetIndex(0);
-    setCompletedSets(0);
+    setExerciseIndex(position.exerciseIndex);
+    setSetIndex(position.setIndex);
+    setCompletedSets(alreadyCompleted);
     setSetSaved(false);
-    setWeight(useAdjustment ? "65" : plan[0].defaultWeight);
-    setReps(plan[0].plannedReps);
+    setSaveError("");
+    setWeight(useAdjustment && position.exerciseIndex === 0 ? "65" : openingExercise.defaultWeight);
+    setReps(openingExercise.plannedReps);
     setRpe("7");
     setView("session");
   };
 
-  const saveCurrentSet = () => {
+  const startPlannedSession = async (day: ProgramDay, useAdjustment = false) => {
+    if (!day.programId || day.exercises.length === 0) return;
+    if (!testerId) {
+      setIdentityError("Indtast dit tester-ID for at starte og gemme dette pas.");
+      setView("week");
+      return;
+    }
+    setIdentityError("");
+    try {
+      const response = await fetch("/api/training", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "start", programId: day.programId }),
+      });
+      const data = (await response.json()) as SessionProgress & { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Passet kunne ikke åbnes.");
+      if (data.status === "completed") return;
+      setProgress((current) => ({ ...current, [data.programId]: data }));
+      startSession(useAdjustment, day.exercises, day.programId, data.completedSets);
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Passet kunne ikke åbnes.");
+      setView("week");
+    }
+  };
+
+  const saveCurrentSet = async () => {
     if (setSaved) return;
-    setCompletedSets((count) => count + 1);
-    setSetSaved(true);
+    setSaveError("");
+    if (!sessionProgramId) {
+      setCompletedSets((count) => count + 1);
+      setSetSaved(true);
+      return;
+    }
+
+    setSavingSet(true);
+    try {
+      const response = await fetch("/api/training", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "log_set",
+          programId: sessionProgramId,
+          exerciseIndex,
+          setIndex,
+          weight,
+          reps,
+          rpe,
+        }),
+      });
+      const data = (await response.json()) as SessionProgress & { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Sættet kunne ikke gemmes.");
+      setCompletedSets(data.completedSets);
+      setProgress((current) => ({ ...current, [data.programId]: data }));
+      setSetSaved(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Sættet kunne ikke gemmes.");
+    } finally {
+      setSavingSet(false);
+    }
   };
 
   const advanceSession = () => {
@@ -234,7 +339,7 @@ export default function Home() {
 
       {view === "today" && (
         <section className="screen enter">
-          <p className="eyebrow">MANDAG · 27. JULI</p>
+          <p className="eyebrow">MANDAG · 3. AUGUST</p>
           <h1>God træning, Mikkel.</h1>
           <p className="lede">I dag bygger vi sikkerhed under tunge løft.</p>
 
@@ -256,8 +361,8 @@ export default function Home() {
           </button>
 
           <button className="week-entry" onClick={() => setView("week")}>
-            <span className="week-entry-date"><strong>31</strong><small>UGE</small></span>
-            <span><strong>Se kommende uges program</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
+            <span className="week-entry-date"><strong>2</strong><small>UGER</small></span>
+            <span><strong>Åbn testperiodens programmer</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
             <b>→</b>
           </button>
 
@@ -289,7 +394,7 @@ export default function Home() {
               <button className="secondary" onClick={() => setView("extraDay")}>Se ekstra træningsdag</button>
             </article>
           )}
-          <button className="primary" onClick={() => startSession(false)}>Start træning</button>
+          <button className="primary" onClick={() => startPlannedSession(todayProgram)}>Start dagens træning</button>
           <article className="feedback-entry">
             <span className="feedback-entry-icon">◎</span>
             <div>
@@ -304,21 +409,42 @@ export default function Home() {
       {view === "week" && (
         <section className="screen enter">
           <button className="back" onClick={() => setView("today")}>← Tilbage</button>
-          <p className="eyebrow">UGE 31 · 27. JUL – 2. AUG</p>
-          <h1>Din kommende uge.</h1>
-          <p className="lede">Se træning, restitution og fokus for hver dag, før ugen går i gang.</p>
+          <p className="eyebrow">TESTPERIODE · 3.–16. AUG</p>
+          <h1>Dine næste to uger.</h1>
+          <p className="lede">Åbn hvert planlagt pas, udfør alle sæt og fortsæt senere uden at miste din fremdrift.</p>
+          <article className={testerId ? "tester-card connected" : "tester-card"}>
+            {testerId ? (
+              <>
+                <span className="tester-check">✓</span>
+                <div><strong>Forbundet som {testerId}</strong><small>Alle planlagte sæt gemmes på din testprofil.</small></div>
+                <button onClick={disconnectTester}>Skift</button>
+              </>
+            ) : (
+              <>
+                <div className="tester-copy"><strong>Forbind dit tester-ID</strong><small>Brug samme ID som i spørgeskemaet, fx A1.</small></div>
+                <div className="tester-connect">
+                  <input aria-label="Tester-ID" value={testerInput} onChange={(event) => setTesterInput(event.target.value)} placeholder="A1" maxLength={12} />
+                  <button onClick={connectTester} disabled={identityLoading}>{identityLoading ? "…" : "Forbind"}</button>
+                </div>
+              </>
+            )}
+            {identityError && <p className="tester-error">{identityError}</p>}
+          </article>
           <article className="week-summary">
             <div><strong>{weekTotals.sessions}</strong><span>planlagte pas</span></div>
             <div><strong>{weekTotals.minutes}</strong><span>minutter</span></div>
             <div><strong>{weekTotals.sets}</strong><span>arbejdssæt</span></div>
           </article>
           <div className="week-list">
-            {weekPlan.map((day) => (
-              <article className={`week-day ${day.status}`} key={day.day}>
+            {twoWeekPlan.map((day) => {
+              const dayProgress = day.programId ? progress[day.programId] : undefined;
+              const daySets = countProgramSets(day);
+              return (
+              <article className={`week-day ${day.status}`} key={`${day.week}-${day.day}`}>
                 <div className="week-day-head">
-                  <div className="week-date"><strong>{day.day}</strong><span>{day.date}</span></div>
+                  <div className="week-date"><b>UGE {day.week}</b><strong>{day.day}</strong><span>{day.date}</span></div>
                   <span className={`week-status ${day.status}`}>
-                    {day.status === "today" ? "I DAG" : day.status === "rest" ? "HVILE" : day.status === "recovery" ? "REST." : "PLANLAGT"}
+                    {dayProgress?.status === "completed" ? "UDFØRT" : dayProgress ? `${dayProgress.completedSets}/${dayProgress.plannedSets} SÆT` : day.status === "today" ? "I DAG" : day.status === "rest" ? "HVILE" : day.status === "recovery" ? "REST." : "PLANLAGT"}
                   </span>
                 </div>
                 <div className="week-day-title">
@@ -328,18 +454,22 @@ export default function Home() {
                 {day.exercises.length > 0 && (
                   <div className="week-exercises">
                     {day.exercises.map((exercise) => {
-                      const exerciseName = exercise.split(" · ")[0];
                       return (
-                        <button key={exercise} onClick={() => setVideoExercise(exerciseName)}>
-                          <span>{exercise}</span><b>{exerciseVideos[exerciseName] ? "▶" : "⌕"}</b>
+                        <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
+                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
                         </button>
                       );
                     })}
                   </div>
                 )}
-                {day.status === "today" && <button onClick={() => setView("today")}>Åbn dagens træning →</button>}
+                {day.programId && dayProgress?.status !== "completed" && (
+                  <button className="open-program" onClick={() => startPlannedSession(day)}>
+                    {dayProgress ? `Fortsæt pas · ${dayProgress.completedSets}/${daySets} sæt →` : "Start dette pas →"}
+                  </button>
+                )}
+                {dayProgress?.status === "completed" && <div className="program-complete">✓ Pas gennemført og gemt</div>}
               </article>
-            ))}
+            );})}
           </div>
           {extraDay.length > 0 && (
             <article className="week-extra-day">
@@ -348,7 +478,7 @@ export default function Home() {
               <button onClick={() => setView("extraDay")}>Se dag</button>
             </article>
           )}
-          <p className="week-note">Planen er et prototypeeksempel. Readiness kan stadig bruges til at tilpasse dagens belastning.</p>
+          <p className="week-note">Test-ID’et huskes i browseren i 21 dage. Træningsdata gemmes i BASE-databasen – ikke i en almindelig cookie.</p>
         </section>
       )}
 
@@ -511,8 +641,8 @@ export default function Home() {
             <div className="weight-change"><div><small>Planlagt snatch</small><strong>70 kg</strong></div><span>→</span><div><small>Foreslået</small><strong>{pain ? "—" : readiness.level === "Grøn" ? "70 kg" : "65 kg"}</strong></div></div>
             <p>Du kan altid se den oprindelige plan og ændre beslutningen.</p>
           </article>
-          {!pain && <button className="primary" onClick={() => startSession(readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
-          <button className="secondary" onClick={() => startSession(false)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
+          {!pain && <button className="primary" onClick={() => startPlannedSession(todayProgram, readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
+          <button className="secondary" onClick={() => startPlannedSession(todayProgram)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
           <p className="safety">BASE giver træningsstøtte – ikke medicinsk rådgivning.</p>
         </section>
       )}
@@ -541,7 +671,7 @@ export default function Home() {
               <label>RPE<input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} /></label>
             </div>
             {!setSaved ? (
-              <button className="primary" onClick={saveCurrentSet}>Gem sæt</button>
+              <button className="primary" onClick={saveCurrentSet} disabled={savingSet}>{savingSet ? "Gemmer…" : "Gem sæt"}</button>
             ) : (
               <>
                 <div className="saved">✓ Sæt gemt · {weight} kg × {reps} @ RPE {rpe}</div>
@@ -554,6 +684,7 @@ export default function Home() {
                 </button>
               </>
             )}
+            {saveError && <div className="set-save-error">{saveError}</div>}
           </article>
           <div className="next-exercise">
             <span>{nextExercise ? "NÆSTE ØVELSE" : "SIDSTE ØVELSE"}</span>
@@ -567,11 +698,11 @@ export default function Home() {
           <div className="checkmark">✓</div>
           <p className="eyebrow">SESSION AFSLUTTET</p>
           <h1>Godt arbejde.</h1>
-          <p className="lede">Du gennemførte prototypeflowet.</p>
+          <p className="lede">Du gennemførte passet. Dine sæt er gemt på din testprofil.</p>
           <article className="summary-card"><div><strong>{completedSets}</strong><span>sæt logget</span></div><div><strong>{sessionPlan.length}</strong><span>øvelser</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
           <div className="test-question"><strong>Hjælp os med at gøre BASE bedre</strong><p>Besvar 10 korte spørgsmål om denne session. Det tager cirka ét minut.</p></div>
           <button className="primary" onClick={() => openFeedback("session")}>Giv feedback på træningen</button>
-          <button className="secondary" onClick={reset}>Spring over og start forfra</button>
+          <button className="secondary" onClick={() => { reset(); setView("week"); }}>Spring over og se testprogrammet</button>
         </section>
       )}
 
