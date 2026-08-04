@@ -7,16 +7,16 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://base-training-prototype.frederikmuller.chatgpt.site"),
-  title: "TRAINPATH · Training prototype",
-  description: "Klikbar prototype af TRAINPATH – plan, readiness, træningslog og feedback.",
+  title: "BASE · Training prototype",
+  description: "Klikbar prototype af BASE – plan, readiness, træningslog og feedback.",
   openGraph: {
-    title: "TRAINPATH · Træn med formål",
+    title: "BASE · Træn med formål",
     description: "Plan, readiness, træningslog og feedback i én fokuseret træningsoplevelse.",
-    images: [{ url: "/og.png", width: 1707, height: 907, alt: "TRAINPATH – træn med formål" }],
+    images: [{ url: "/og.png", width: 1707, height: 907, alt: "BASE – træn med formål" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TRAINPATH · Træn med formål",
+    title: "BASE · Træn med formål",
     description: "Plan, readiness, træningslog og feedback i én fokuseret træningsoplevelse.",
     images: ["/og.png"],
   },
