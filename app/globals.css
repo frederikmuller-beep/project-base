@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root { --ink:#111814; --muted:#69736d; --line:#dfe5e0; --cream:#f4f5f0; --white:#fff; --lime:#d9ff43; --green:#166b45; --amber:#b66a00; --red:#a63d33; }
+:root { --ink:#111814; --muted:#69736d; --line:#dfe5e0; --cream:#f4f5f0; --white:#fff; --lime:#d9ff43; --green:#166b45; --amber:#b66a00; --red:#a63d33; --brand-navy:#173b70; --brand-orange:#d9772b; --brand-ivory:#f5f2ec; }
 * { box-sizing:border-box; }
 html { background:#e8ebe6; }
 body { margin:0; color:var(--ink); font-family:var(--font-geist-sans),Arial,sans-serif; background:radial-gradient(circle at 50% 0,#fff 0,#eef1ec 42%,#e2e6e0 100%); min-height:100vh; }
@@ -8,7 +8,7 @@ button,input { font:inherit; }
 button { color:inherit; }
 .app-shell { width:100%; max-width:460px; min-height:100vh; margin:0 auto; background:var(--cream); box-shadow:0 0 60px #17231b18; position:relative; padding-bottom:45px; }
 .topbar { height:72px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
-.brand { font-size:20px; letter-spacing:-1px; font-weight:900; }.brand span{color:var(--green)}
+.brand{display:inline-flex;align-items:center;gap:9px;color:var(--brand-navy);user-select:none}.brand-mark{position:relative;display:block;width:36px;height:28px;flex:0 0 36px}.brand-wave{position:absolute;display:block;width:22px;height:15px;border-top:4px solid var(--brand-orange);border-radius:50%;transform-origin:center}.brand-wave-one{left:0;top:10px;transform:rotate(-16deg)}.brand-wave-two{right:0;top:3px;transform:rotate(16deg)}.brand-wordmark{display:flex;align-items:baseline;font-size:15px;line-height:1;letter-spacing:-.45px}.brand-wordmark b,.brand-wordmark strong{font-weight:850}.brand-wordmark strong{color:var(--brand-orange)}
 .avatar { width:38px;height:38px;border:1px solid #cad1cc;border-radius:50%;background:#fff;font:700 12px var(--font-geist-mono); }
 .screen { padding:30px 22px 24px; }
 .enter { animation:enter .28s ease both; } @keyframes enter { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none} }
