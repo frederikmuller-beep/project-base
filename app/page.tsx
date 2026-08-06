@@ -6,7 +6,7 @@ import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, type ProgramDay, type SessionExercise } from "./program-data";
-import { defaultSwimProfile, getSwimPlan, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
+import { defaultSwimProfile, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
 
 type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
@@ -21,7 +21,7 @@ type ExtraDayExercise = {
 
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 
-const defaultPlan = getSwimPlan(defaultSwimProfile);
+const defaultPlan = getTrainingPlan(defaultSwimProfile);
 
 const countReps = (value: string) =>
   value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
@@ -127,18 +127,22 @@ export default function Home() {
     defaultWeight: exercise.weight || "0",
     tracking: exercise.format,
   })), [extraDay]);
-  const libraryCategories = useMemo<LibraryCategory[]>(
-    () => ["Alle", ...Array.from(new Set(exerciseLibrary.map((exercise) => exercise.category)))],
+  const athleteExerciseLibrary = useMemo(
+    () => exerciseLibrary.filter((exercise) => exercise.category !== "Svømning"),
     [],
+  );
+  const libraryCategories = useMemo<LibraryCategory[]>(
+    () => ["Alle", ...Array.from(new Set(athleteExerciseLibrary.map((exercise) => exercise.category)))],
+    [athleteExerciseLibrary],
   );
   const filteredExercises = useMemo(() => {
     const query = librarySearch.trim().toLocaleLowerCase("da-DK");
-    return exerciseLibrary.filter((exercise) => {
+    return athleteExerciseLibrary.filter((exercise) => {
       const matchesCategory = libraryCategory === "Alle" || exercise.category === libraryCategory;
       const searchableText = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.cue}`.toLocaleLowerCase("da-DK");
       return matchesCategory && (!query || searchableText.includes(query));
     });
-  }, [libraryCategory, librarySearch]);
+  }, [athleteExerciseLibrary, libraryCategory, librarySearch]);
   const selectedVideo = videoExercise ? exerciseVideos[videoExercise] : undefined;
 
   const loadProgress = async () => {
@@ -381,13 +385,13 @@ export default function Home() {
           <p className="lede">Dit program er tilpasset {trainingProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
 
           <article className="hero-card">
-            <div className="hero-meta"><span>{activeProfile === "weightlifting" ? "VÆGTLØFTNING" : `SVØMNING · ${trainingProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}`}</span><span>{activeToday.duration} MIN</span></div>
+            <div className="hero-meta"><span>{activeProfile === "weightlifting" ? "VÆGTLØFTNING" : `STYRKETRÆNING · ${trainingProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}`}</span><span>{activeToday.duration} MIN</span></div>
             <h2>{activeToday.title}</h2>
             <p>{activeToday.focus}.</p>
             <div className="session-stats">
               <div><strong>{activeToday.exercises.length}</strong><span>blokke</span></div>
               <div><strong>{countProgramSets(activeToday)}</strong><span>arbejdssæt</span></div>
-              <div><strong>{activeProfile === "weightlifting" ? "3.050 kg" : `${activeToday.distanceMeters?.toLocaleString("da-DK")} m`}</strong><span>{activeProfile === "weightlifting" ? "samlet volumen" : "planlagt distance"}</span></div>
+              <div><strong>{activeProfile === "weightlifting" ? "3.050 kg" : activeToday.intensity}</strong><span>{activeProfile === "weightlifting" ? "samlet volumen" : "intensitet"}</span></div>
             </div>
           </article>
 
@@ -414,7 +418,7 @@ export default function Home() {
             ))}
           </div>
           <button className="library-link" onClick={() => setView("library")}>
-            <span><strong>Udforsk øvelsesbiblioteket</strong><small>{exerciseLibrary.length} øvelser · {libraryCategories.length - 1} kategorier</small></span>
+            <span><strong>Udforsk styrkebiblioteket</strong><small>{athleteExerciseLibrary.length} øvelser · {libraryCategories.length - 1} kategorier</small></span>
             <b>→</b>
           </button>
           {extraDay.length === 0 ? (
@@ -476,7 +480,7 @@ export default function Home() {
           </article>
           <article className="week-summary">
             <div><strong>{weekTotals.sessions}</strong><span>planlagte pas</span></div>
-            <div><strong>{activeProfile === "weightlifting" ? `${weekTotals.minutes} min` : `${(weekTotals.distance / 1000).toLocaleString("da-DK", { maximumFractionDigits: 1 })} km`}</strong><span>{activeProfile === "weightlifting" ? "planlagt tid" : "planlagt distance"}</span></div>
+            <div><strong>{weekTotals.minutes} min</strong><span>planlagt styrketid</span></div>
             <div><strong>{trainingProfileLabel(activeProfile)}</strong><span>profil</span></div>
           </article>
           <div className="week-list">
@@ -533,7 +537,7 @@ export default function Home() {
           <h1>Variation med et formål.</h1>
           <p className="lede">Hver variation er koblet til et træningsmål og et enkelt teknisk fokus.</p>
           <div className="library-summary">
-            <div><strong>{exerciseLibrary.length}</strong><span>øvelser</span></div>
+            <div><strong>{athleteExerciseLibrary.length}</strong><span>øvelser</span></div>
             <div><strong>{libraryCategories.length - 1}</strong><span>kategorier</span></div>
             <div><strong>{Object.keys(exerciseVideos).length}</strong><span>testvideoer</span></div>
           </div>

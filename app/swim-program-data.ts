@@ -1,4 +1,5 @@
 import { twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
+import { getSwimmerStrengthPlan } from "./strength-program-data";
 
 export type SwimProfile = "long_distance" | "middle_distance" | "sprint";
 export type TrainingProfile = "weightlifting" | SwimProfile;
@@ -11,7 +12,9 @@ export const swimProfileOptions: Array<{ id: SwimProfile; label: string; short: 
 
 export const trainingProfileOptions: Array<{ id: TrainingProfile; label: string; short: string; description: string }> = [
   { id: "weightlifting", label: "Vægtløftning", short: "VL", description: "Det oprindelige BASE-program med teknik, styrke og konkurrenceløft." },
-  ...swimProfileOptions,
+  { id: "long_distance", label: "Langdistance", short: "LANG", description: "Styrkeudholdenhed, holdning og stabilitet til længere svømmearbejde." },
+  { id: "middle_distance", label: "Mellemdistance", short: "MELLEM", description: "Helkropsstyrke og power til gentagen fart." },
+  { id: "sprint", label: "Sprint", short: "SPRINT", description: "Maksimal styrke og eksplosiv power med lange pauser." },
 ];
 
 export const trainingProfileLabel = (profile: TrainingProfile | null | undefined) =>
@@ -126,4 +129,4 @@ export const getSwimPlan = (profile: SwimProfile) => swimPlans[profile];
 export const getSwimProgram = (programId: string) => Object.values(swimPlans).flat().find((day) => day.programId === programId);
 export const isSwimProfile = (value: unknown): value is SwimProfile => swimProfileOptions.some((option) => option.id === value);
 export const isTrainingProfile = (value: unknown): value is TrainingProfile => trainingProfileOptions.some((option) => option.id === value);
-export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : getSwimPlan(profile);
+export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : getSwimmerStrengthPlan(profile);

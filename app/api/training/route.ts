@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { testParticipants, trainingSessions, trainingSetLogs } from "../../../db/schema";
 import { countProgramSets, getProgram } from "../../program-data";
-import { getSwimProgram } from "../../swim-program-data";
+import { getStrengthProgram } from "../../strength-program-data";
 import { getTesterId } from "../../../lib/tester-session";
 
 type TrainingPayload = {
@@ -69,12 +69,12 @@ export async function POST(request: Request) {
       return Response.json({ error: "Vælg din træningsprofil før du starter passet." }, { status: 400 });
     }
     const program = payload.programId
-      ? participant.trainingProfile === "weightlifting" ? getProgram(payload.programId) : getSwimProgram(payload.programId)
+      ? participant.trainingProfile === "weightlifting" ? getProgram(payload.programId) : getStrengthProgram(payload.programId)
       : undefined;
 
     const matchesProfile = participant.trainingProfile === "weightlifting"
       ? Boolean(program && getProgram(program.programId ?? ""))
-      : Boolean(program?.programId?.startsWith(`${participant.trainingProfile}-`));
+      : Boolean(program?.programId?.startsWith(`strength-${participant.trainingProfile}-`));
     if (!program || !program.programId || !matchesProfile || program.exercises.length === 0) {
       return Response.json({ error: "Vælg et gyldigt planlagt pas." }, { status: 400 });
     }

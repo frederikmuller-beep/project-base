@@ -5,6 +5,7 @@ import { hasPrivateAccess, getPrivateAccessSecret } from "../../../../lib/privat
 import { normalizeTesterId } from "../../../../lib/tester-session";
 import { getProgram } from "../../../program-data";
 import { getSwimProgram, swimProfileLabel } from "../../../swim-program-data";
+import { getStrengthProgram } from "../../../strength-program-data";
 
 const testCoachId = "test-coach-1";
 
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
         .filter((session) => session.testerId === testerId)
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .map((session) => {
-          const program = getSwimProgram(session.programId) ?? getProgram(session.programId);
+          const program = getStrengthProgram(session.programId) ?? getSwimProgram(session.programId) ?? getProgram(session.programId);
           return {
             id: session.id,
             programId: session.programId,
