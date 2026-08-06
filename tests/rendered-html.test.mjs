@@ -134,3 +134,23 @@ test("keeps future Apple Health and Garmin integrations provider-neutral", async
   assert.match(documentation, /Apple Health/);
   assert.match(documentation, /Garmin/);
 });
+
+test("protects internal CSV exports and exposes only the intended test datasets", async () => {
+  const [route, panel, csv] = await Promise.all([
+    readFile(new URL("../app/api/admin/export/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/export/export-panel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/csv.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /BASE_EXPORT_KEY/);
+  assert.match(route, /authorization/);
+  assert.match(route, /secureEqual/);
+  assert.match(route, /private, no-store/);
+  assert.match(route, /overview.*training.*feedback/);
+  assert.doesNotMatch(route, /dailyHealthMetrics|healthConnections/);
+  assert.match(panel, /Nøglen gemmes ikke i browseren/);
+  assert.match(panel, /Download CSV/);
+  assert.doesNotMatch(panel, /localStorage|sessionStorage/);
+  assert.match(csv, /spreadsheetFormulaPattern/);
+  assert.match(csv, /replaceAll\('\"', '\"\"'\)/);
+});
