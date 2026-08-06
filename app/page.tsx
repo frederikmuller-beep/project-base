@@ -343,7 +343,13 @@ export default function Home() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand">BASE<span>.</span></div>
+        <div className="brand" aria-label="BASE">
+          <span className="brand-mark" aria-hidden="true">
+            <span className="brand-wave brand-wave-one" />
+            <span className="brand-wave brand-wave-two" />
+          </span>
+          <span className="brand-wordmark"><b>BASE</b><strong>.</strong></span>
+        </div>
         <button className="avatar" aria-label="Åbn profil">MH</button>
       </header>
 
