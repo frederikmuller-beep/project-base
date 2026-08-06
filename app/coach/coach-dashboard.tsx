@@ -35,7 +35,10 @@ export function CoachDashboard() {
   const [coachKey, setCoachKey] = useState("");
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [athleteInput, setAthleteInput] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mutating, setMutating] = useState(false);
   const [error, setError] = useState("");
   const selected = athletes.find((athlete) => athlete.testerId === selectedId) ?? null;
   const totals = useMemo(() => ({
@@ -55,13 +58,54 @@ export function CoachDashboard() {
       const payload = (await response.json().catch(() => null)) as { athletes?: Athlete[]; error?: string } | null;
       if (!response.ok || !payload?.athletes) throw new Error(payload?.error ?? "Atletdata kunne ikke hentes.");
       setAthletes(payload.athletes);
-      setSelectedId(payload.athletes[0]?.testerId ?? null);
+      setSelectedId((current) => payload.athletes?.some((athlete) => athlete.testerId === current) ? current : payload.athletes?.[0]?.testerId ?? null);
+      setUnlocked(true);
     } catch (loadError) {
       setAthletes([]);
       setSelectedId(null);
       setError(loadError instanceof Error ? loadError.message : "Atletdata kunne ikke hentes.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const assignAthlete = async () => {
+    if (!athleteInput.trim()) return;
+    setMutating(true);
+    setError("");
+    try {
+      const response = await fetch("/api/coach/athletes", {
+        method: "POST",
+        headers: { authorization: `Bearer ${coachKey}`, "content-type": "application/json" },
+        body: JSON.stringify({ testerId: athleteInput }),
+      });
+      const payload = (await response.json().catch(() => null)) as { testerId?: string; error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "Atleten kunne ikke tildeles.");
+      setAthleteInput("");
+      await loadAthletes();
+      if (payload?.testerId) setSelectedId(payload.testerId);
+    } catch (assignError) {
+      setError(assignError instanceof Error ? assignError.message : "Atleten kunne ikke tildeles.");
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const removeAthlete = async (testerId: string) => {
+    setMutating(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/coach/athletes?testerId=${encodeURIComponent(testerId)}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${coachKey}` },
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "Tildelingen kunne ikke fjernes.");
+      await loadAthletes();
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Tildelingen kunne ikke fjernes.");
+    } finally {
+      setMutating(false);
     }
   };
 
@@ -74,12 +118,16 @@ export function CoachDashboard() {
 
       <section className="coach-access-card">
         <label>TRÆNERNØGLE<input type="password" value={coachKey} onChange={(event) => setCoachKey(event.target.value)} placeholder="Indtast den private nøgle" /></label>
-        <button type="button" disabled={coachKey.length < 24 || loading} onClick={loadAthletes}>{loading ? "Henter…" : athletes.length ? "Opdatér" : "Åbn træneroverblik"}</button>
+        <button type="button" disabled={coachKey.length < 24 || loading} onClick={loadAthletes}>{loading ? "Henter…" : unlocked ? "Opdatér" : "Åbn træneroverblik"}</button>
       </section>
       {error && <div className="export-error" role="alert">{error}</div>}
 
-      {athletes.length > 0 && (
+      {unlocked && (
         <>
+          <section className="coach-assignment-card">
+            <div><strong>Tildel en atlet</strong><small>Indtast det præcise tester-ID, som svømmeren bruger i BASE.</small></div>
+            <div><input aria-label="Atletens tester-ID" value={athleteInput} onChange={(event) => setAthleteInput(event.target.value)} placeholder="Fx A1" maxLength={12} /><button type="button" disabled={mutating || !athleteInput.trim()} onClick={assignAthlete}>{mutating ? "…" : "Tilføj atlet"}</button></div>
+          </section>
           <section className="coach-summary">
             <div><strong>{athletes.length}</strong><span>atleter</span></div>
             <div><strong>{totals.completed}/{totals.sessions}</strong><span>pas gennemført</span></div>
@@ -87,6 +135,7 @@ export function CoachDashboard() {
           </section>
           <div className="coach-layout">
             <section className="athlete-list" aria-label="Atleter">
+              {athletes.length === 0 && <div className="coach-empty"><strong>Ingen atleter tildelt endnu.</strong><span>Tilføj det første tester-ID ovenfor.</span></div>}
               {athletes.map((athlete) => (
                 <button key={athlete.testerId} className={selectedId === athlete.testerId ? "active" : ""} onClick={() => setSelectedId(athlete.testerId)}>
                   <span className="athlete-avatar">{athlete.testerId.slice(0, 2)}</span>
@@ -98,7 +147,7 @@ export function CoachDashboard() {
 
             {selected && (
               <section className="athlete-detail">
-                <div className="athlete-detail-head"><div><span>ATLET · {selected.trainingProfileLabel.toLocaleUpperCase("da-DK")}</span><h2>{selected.testerId}</h2></div><small>Senest aktiv<br />{dateLabel(selected.lastActiveAt)}</small></div>
+                <div className="athlete-detail-head"><div><span>ATLET · {selected.trainingProfileLabel.toLocaleUpperCase("da-DK")}</span><h2>{selected.testerId}</h2></div><div className="athlete-detail-actions"><small>Senest aktiv<br />{dateLabel(selected.lastActiveAt)}</small><button type="button" disabled={mutating} onClick={() => removeAthlete(selected.testerId)}>Fjern tildeling</button></div></div>
                 {selected.sessions.length === 0 ? (
                   <div className="coach-empty"><strong>Ingen træning registreret endnu.</strong><span>Atleten vises, så snart tester-ID’et er forbundet.</span></div>
                 ) : selected.sessions.map((session) => (
@@ -121,7 +170,7 @@ export function CoachDashboard() {
               </section>
             )}
           </div>
-          <p className="coach-privacy">Visningen indeholder kun tester-ID og træningsdata. Feedback, readiness og helbredsdata deles ikke.</p>
+          <p className="coach-privacy">Du ser kun tildelte tester-ID’er og deres træningsdata. Feedback, readiness og helbredsdata deles ikke.</p>
         </>
       )}
     </main>

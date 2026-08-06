@@ -1,11 +1,14 @@
-import { asc } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
+import { coachAthleteAssignments, testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { hasPrivateAccess, getPrivateAccessSecret } from "../../../../lib/private-access";
+import { normalizeTesterId } from "../../../../lib/tester-session";
 import { getProgram } from "../../../program-data";
 import { getSwimProgram, swimProfileLabel } from "../../../swim-program-data";
 
-export async function GET(request: Request) {
+const testCoachId = "test-coach-1";
+
+const accessError = (request: Request) => {
   if (!getPrivateAccessSecret("BASE_COACH_KEY")) {
     return Response.json({ error: "Træneradgangen er ikke konfigureret endnu." }, { status: 503 });
   }
@@ -15,19 +18,27 @@ export async function GET(request: Request) {
       headers: { "cache-control": "no-store", "www-authenticate": "Bearer" },
     });
   }
+  return null;
+};
+
+export async function GET(request: Request) {
+  const denied = accessError(request);
+  if (denied) return denied;
 
   try {
     const db = getDb();
-    const [participants, sessions, setLogs] = await Promise.all([
-      db.select().from(testParticipants).orderBy(asc(testParticipants.testerId)),
-      db.select().from(trainingSessions).orderBy(asc(trainingSessions.startedAt)),
-      db.select().from(trainingSetLogs).orderBy(asc(trainingSetLogs.exerciseIndex), asc(trainingSetLogs.setIndex)),
+    const assignments = await db.select().from(coachAthleteAssignments)
+      .where(eq(coachAthleteAssignments.coachId, testCoachId))
+      .orderBy(asc(coachAthleteAssignments.assignedAt));
+    const participantIds = assignments.map((assignment) => assignment.testerId);
+    const [participants, sessions] = participantIds.length === 0 ? [[], []] : await Promise.all([
+      db.select().from(testParticipants).where(inArray(testParticipants.testerId, participantIds)),
+      db.select().from(trainingSessions).where(inArray(trainingSessions.testerId, participantIds)).orderBy(asc(trainingSessions.startedAt)),
     ]);
-
-    const participantIds = new Set([
-      ...participants.map((participant) => participant.testerId),
-      ...sessions.map((session) => session.testerId),
-    ]);
+    const sessionIds = sessions.map((session) => session.id);
+    const setLogs = sessionIds.length === 0 ? [] : await db.select().from(trainingSetLogs)
+      .where(inArray(trainingSetLogs.sessionId, sessionIds))
+      .orderBy(asc(trainingSetLogs.exerciseIndex), asc(trainingSetLogs.setIndex));
     const logsBySession = new Map<string, typeof setLogs>();
     for (const setLog of setLogs) {
       const current = logsBySession.get(setLog.sessionId) ?? [];
@@ -35,7 +46,7 @@ export async function GET(request: Request) {
       logsBySession.set(setLog.sessionId, current);
     }
 
-    const athletes = [...participantIds].sort((left, right) => left.localeCompare(right, "da")).map((testerId) => {
+    const athletes = participantIds.map((testerId) => {
       const athleteSessions = sessions
         .filter((session) => session.testerId === testerId)
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
@@ -84,5 +95,35 @@ export async function GET(request: Request) {
       status: 500,
       headers: { "cache-control": "no-store" },
     });
+  }
+}
+
+export async function POST(request: Request) {
+  const denied = accessError(request);
+  if (denied) return denied;
+  const payload = (await request.json().catch(() => null)) as { testerId?: string } | null;
+  const testerId = normalizeTesterId(payload?.testerId);
+  if (!testerId) return Response.json({ error: "Indtast et gyldigt tester-ID." }, { status: 400 });
+  try {
+    await getDb().insert(coachAthleteAssignments).values({ coachId: testCoachId, testerId }).onConflictDoNothing();
+    return Response.json({ assigned: true, testerId }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return Response.json({ error: "Atleten kunne ikke tildeles." }, { status: 500, headers: { "cache-control": "no-store" } });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const denied = accessError(request);
+  if (denied) return denied;
+  const testerId = normalizeTesterId(new URL(request.url).searchParams.get("testerId"));
+  if (!testerId) return Response.json({ error: "Vælg et gyldigt tester-ID." }, { status: 400 });
+  try {
+    await getDb().delete(coachAthleteAssignments).where(and(
+      eq(coachAthleteAssignments.coachId, testCoachId),
+      eq(coachAthleteAssignments.testerId, testerId),
+    ));
+    return Response.json({ removed: true, testerId }, { headers: { "cache-control": "no-store" } });
+  } catch {
+    return Response.json({ error: "Tildelingen kunne ikke fjernes." }, { status: 500, headers: { "cache-control": "no-store" } });
   }
 }

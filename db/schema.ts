@@ -17,6 +17,16 @@ export const testParticipants = sqliteTable("test_participants", {
   lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const coachAthleteAssignments = sqliteTable("coach_athlete_assignments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  coachId: text("coach_id").notNull(),
+  testerId: text("tester_id").notNull(),
+  assignedAt: text("assigned_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_coach_athlete_assignments_coach_tester").on(table.coachId, table.testerId),
+  index("idx_coach_athlete_assignments_coach").on(table.coachId),
+]);
+
 export const trainingSessions = sqliteTable("training_sessions", {
   id: text("id").primaryKey(),
   testerId: text("tester_id").notNull(),

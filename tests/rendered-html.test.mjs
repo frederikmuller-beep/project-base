@@ -179,13 +179,14 @@ test("protects internal CSV exports and exposes only the intended test datasets"
 });
 
 test("protects the coach view and limits it to pseudonymous training data", async () => {
-  const [schema, participantRoute, coachRoute, dashboard, coachPage, migration] = await Promise.all([
+  const [schema, participantRoute, coachRoute, dashboard, coachPage, migration, assignmentMigration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/coach/athletes/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/coach/coach-dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/coach/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0003_ambiguous_pretty_boy.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0005_strong_mulholland_black.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /testParticipants/);
@@ -193,12 +194,20 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   assert.match(coachRoute, /BASE_COACH_KEY/);
   assert.match(coachRoute, /trainingSessions/);
   assert.match(coachRoute, /trainingSetLogs/);
+  assert.match(coachRoute, /coachAthleteAssignments/);
+  assert.match(coachRoute, /inArray\(trainingSessions\.testerId, participantIds\)/);
+  assert.match(coachRoute, /export async function POST/);
+  assert.match(coachRoute, /export async function DELETE/);
   assert.doesNotMatch(coachRoute, /feedbackResponses|dailyHealthMetrics|healthConnections/);
   assert.match(dashboard, /\/api\/coach\/athletes/);
   assert.match(dashboard, /Feedback, readiness og helbredsdata deles ikke/);
+  assert.match(dashboard, /Tildel en atlet/);
+  assert.match(dashboard, /Fjern tildeling/);
   assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
   assert.match(coachPage, /robots: \{ index: false, follow: false \}/);
   assert.match(migration, /CREATE TABLE `test_participants`/);
+  assert.match(assignmentMigration, /CREATE TABLE `coach_athlete_assignments`/);
+  assert.match(assignmentMigration, /CREATE UNIQUE INDEX `idx_coach_athlete_assignments_coach_tester`/);
 });
 
 test("persists and enforces each swimmer's selected distance profile", async () => {
