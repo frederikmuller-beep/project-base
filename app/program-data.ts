@@ -6,6 +6,7 @@ export type SessionExercise = {
   plannedReps: string;
   defaultWeight: string;
   tracking?: "load" | "distance";
+  restSeconds?: number;
 };
 
 export type ProgramDay = {
@@ -18,6 +19,8 @@ export type ProgramDay = {
   focus: string;
   duration: number;
   exercises: SessionExercise[];
+  intensity?: string;
+  distanceMeters?: number;
 };
 
 const exercise = (

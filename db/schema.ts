@@ -12,6 +12,7 @@ export const feedbackResponses = sqliteTable("feedback_responses", {
 
 export const testParticipants = sqliteTable("test_participants", {
   testerId: text("tester_id").primaryKey(),
+  trainingProfile: text("training_profile", { enum: ["long_distance", "middle_distance", "sprint"] }),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

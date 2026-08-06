@@ -3,6 +3,7 @@ import { getDb } from "../../../../db";
 import { testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { hasPrivateAccess, getPrivateAccessSecret } from "../../../../lib/private-access";
 import { getProgram } from "../../../program-data";
+import { getSwimProgram, swimProfileLabel } from "../../../swim-program-data";
 
 export async function GET(request: Request) {
   if (!getPrivateAccessSecret("BASE_COACH_KEY")) {
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
         .filter((session) => session.testerId === testerId)
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .map((session) => {
-          const program = getProgram(session.programId);
+          const program = getSwimProgram(session.programId) ?? getProgram(session.programId);
           return {
             id: session.id,
             programId: session.programId,
@@ -64,6 +65,8 @@ export async function GET(request: Request) {
       const lastTrainingAt = athleteSessions[0]?.completedAt ?? athleteSessions[0]?.startedAt ?? null;
       return {
         testerId,
+        trainingProfile: participants.find((participant) => participant.testerId === testerId)?.trainingProfile ?? null,
+        trainingProfileLabel: swimProfileLabel(participants.find((participant) => participant.testerId === testerId)?.trainingProfile),
         lastActiveAt: [lastSeenAt, lastTrainingAt].filter(Boolean).sort().at(-1) ?? null,
         sessionsStarted: athleteSessions.length,
         sessionsCompleted: athleteSessions.filter((session) => session.status === "completed").length,

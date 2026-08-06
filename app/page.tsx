@@ -5,7 +5,8 @@ import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../li
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
-import { countProgramSets, todayProgram, twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
+import { countProgramSets, type ProgramDay, type SessionExercise } from "./program-data";
+import { defaultSwimProfile, getSwimPlan, swimProfileLabel, swimProfileOptions, type SwimProfile } from "./swim-program-data";
 
 type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
@@ -20,16 +21,7 @@ type ExtraDayExercise = {
 
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 
-const todayExercises = todayProgram.exercises;
-
-const weekTotals = twoWeekPlan.reduce(
-  (totals, day) => ({
-    sessions: totals.sessions + (day.duration > 0 ? 1 : 0),
-    minutes: totals.minutes + day.duration,
-    sets: totals.sets + countProgramSets(day),
-  }),
-  { sessions: 0, minutes: 0, sets: 0 },
-);
+const defaultPlan = getSwimPlan(defaultSwimProfile);
 
 const countReps = (value: string) =>
   value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
@@ -65,7 +57,7 @@ export default function Home() {
   const [reps, setReps] = useState("2");
   const [rpe, setRpe] = useState("7");
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
-  const [sessionPlan, setSessionPlan] = useState<SessionExercise[]>(todayExercises);
+  const [sessionPlan, setSessionPlan] = useState<SessionExercise[]>(defaultPlan[0].exercises);
   const [extraDraft, setExtraDraft] = useState<ExtraDayExercise[]>([]);
   const [extraDay, setExtraDay] = useState<ExtraDayExercise[]>([]);
   const [extraDayName, setExtraDayName] = useState("Teknik & styrke");
@@ -74,6 +66,8 @@ export default function Home() {
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
   const [videoExercise, setVideoExercise] = useState<string | null>(null);
   const [testerId, setTesterId] = useState<string | null>(null);
+  const [trainingProfile, setTrainingProfile] = useState<SwimProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<SwimProfile>(defaultSwimProfile);
   const [testerInput, setTesterInput] = useState("");
   const [identityLoading, setIdentityLoading] = useState(true);
   const [identityError, setIdentityError] = useState("");
@@ -82,6 +76,18 @@ export default function Home() {
   const [sessionProgramId, setSessionProgramId] = useState<string | null>(null);
   const [savingSet, setSavingSet] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const activeProfile = trainingProfile ?? profileDraft;
+  const activePlan = useMemo(() => getSwimPlan(activeProfile), [activeProfile]);
+  const activeToday = activePlan[0];
+  const weekTotals = useMemo(() => activePlan.reduce(
+    (totals, day) => ({
+      sessions: totals.sessions + (day.duration > 0 ? 1 : 0),
+      minutes: totals.minutes + day.duration,
+      sets: totals.sets + countProgramSets(day),
+      distance: totals.distance + (day.distanceMeters ?? 0),
+    }),
+    { sessions: 0, minutes: 0, sets: 0, distance: 0 },
+  ), [activePlan]);
   const currentExercise = sessionPlan[exerciseIndex];
   const nextExercise = sessionPlan[exerciseIndex + 1];
   const totalPlannedSets = useMemo(
@@ -152,10 +158,12 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
-      .then(async (response) => response.json() as Promise<{ testerId: string | null }>)
+      .then(async (response) => response.json() as Promise<{ testerId: string | null; trainingProfile: SwimProfile | null }>)
       .then(async (data) => {
         if (!active) return;
         setTesterId(data.testerId);
+        setTrainingProfile(data.trainingProfile);
+        if (data.trainingProfile) setProfileDraft(data.trainingProfile);
         if (data.testerId) await Promise.all([loadProgress(), loadHealthSummary()]);
       })
       .catch(() => undefined)
@@ -170,11 +178,12 @@ export default function Home() {
       const response = await fetch("/api/participant", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ testerId: testerInput }),
+        body: JSON.stringify({ testerId: testerId ?? testerInput, trainingProfile: profileDraft }),
       });
-      const data = (await response.json()) as { testerId?: string; error?: string };
+      const data = (await response.json()) as { testerId?: string; trainingProfile?: SwimProfile; error?: string };
       if (!response.ok || !data.testerId) throw new Error(data.error ?? "Tester-ID kunne ikke gemmes.");
       setTesterId(data.testerId);
+      setTrainingProfile(data.trainingProfile ?? profileDraft);
       setTesterInput("");
       await Promise.all([loadProgress(), loadHealthSummary()]);
     } catch (error) {
@@ -187,6 +196,7 @@ export default function Home() {
   const disconnectTester = async () => {
     await fetch("/api/participant", { method: "DELETE" });
     setTesterId(null);
+    setTrainingProfile(null);
     setProgress({});
     setHealthSummary(null);
     setIdentityError("");
@@ -198,22 +208,22 @@ export default function Home() {
   };
 
   const readiness = useMemo(() => {
-    if (pain) return { level: "Rød", className: "red", score: 38, text: "Pause tunge løft", reason: "Du har angivet smerte. BASE ændrer ikke din plan automatisk." };
+    if (pain) return { level: "Rød", className: "red", score: 38, text: "Pause hård træning", reason: "Du har angivet smerte. BASE ændrer ikke din plan automatisk." };
     const score = Math.round(((energy + sleep + (6 - soreness)) / 15) * 100);
     if (score >= 72) return { level: "Grøn", className: "green", score, text: "Følg planen", reason: "Dine svar ligger tæt på dit normale niveau." };
-    return { level: "Gul", className: "amber", score, text: "Reducer belastningen 7 %", reason: "Lav energi og ømhed gør kvalitet vigtigere end maksimal belastning i dag." };
+    return { level: "Gul", className: "amber", score, text: "Sænk intensiteten", reason: "Lav energi og ømhed gør rolig teknik vigtigere end høj fart i dag." };
   }, [energy, sleep, soreness, pain]);
 
   const reset = () => {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
-    setSetSaved(false); setWeight("70"); setReps("2"); setRpe("7"); setSessionPlan(todayExercises);
+    setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe("7"); setSessionPlan(activeToday.exercises);
     setSessionProgramId(null); setSaveError("");
   };
 
   const startSession = (
     useAdjustment: boolean,
-    plan: SessionExercise[] = todayExercises,
+    plan: SessionExercise[] = activeToday.exercises,
     programId: string | null = null,
     alreadyCompleted = 0,
   ) => {
@@ -228,7 +238,7 @@ export default function Home() {
     setCompletedSets(alreadyCompleted);
     setSetSaved(false);
     setSaveError("");
-    setWeight(useAdjustment && position.exerciseIndex === 0 ? "65" : openingExercise.defaultWeight);
+    setWeight(useAdjustment && position.exerciseIndex === 0 && openingExercise.tracking !== "distance" ? "65" : openingExercise.defaultWeight);
     setReps(openingExercise.plannedReps);
     setRpe("7");
     setView("session");
@@ -366,18 +376,18 @@ export default function Home() {
 
       {view === "today" && (
         <section className="screen enter">
-          <p className="eyebrow">MANDAG · 3. AUGUST</p>
-          <h1>God træning, Mikkel.</h1>
-          <p className="lede">I dag bygger vi sikkerhed under tunge løft.</p>
+          <p className="eyebrow">TIRSDAG · 11. AUGUST</p>
+          <h1>God træning.</h1>
+          <p className="lede">Dit program er tilpasset {swimProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
 
           <article className="hero-card">
-            <div className="hero-meta"><span>VÆGTLØFTNING</span><span>80 MIN</span></div>
-            <h2>Competition focus</h2>
-            <p>Teknisk kvalitet under moderat belastning.</p>
+            <div className="hero-meta"><span>SVØMNING · {swimProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}</span><span>{activeToday.duration} MIN</span></div>
+            <h2>{activeToday.title}</h2>
+            <p>{activeToday.focus}.</p>
             <div className="session-stats">
-              <div><strong>3</strong><span>øvelser</span></div>
-              <div><strong>15</strong><span>arbejdssæt</span></div>
-              <div><strong>3.100 kg</strong><span>samlet volumen</span></div>
+              <div><strong>{activeToday.exercises.length}</strong><span>blokke</span></div>
+              <div><strong>{countProgramSets(activeToday)}</strong><span>arbejdssæt</span></div>
+              <div><strong>{activeToday.distanceMeters?.toLocaleString("da-DK")} m</strong><span>planlagt distance</span></div>
             </div>
           </article>
 
@@ -393,9 +403,9 @@ export default function Home() {
             <b>→</b>
           </button>
 
-          <div className="section-head"><h3>Dagens plan</h3><span>3 øvelser</span></div>
+          <div className="section-head"><h3>Dagens plan</h3><span>{activeToday.exercises.length} blokke</span></div>
           <div className="exercise-list">
-            {todayExercises.map((exercise, index) => (
+            {activeToday.exercises.map((exercise, index) => (
               <div className="exercise" key={exercise.name}>
                 <span className="exercise-number">0{index + 1}</span>
                 <div><strong>{exercise.name}</strong><small>{exercise.detail}</small></div>
@@ -421,7 +431,7 @@ export default function Home() {
               <button className="secondary" onClick={() => setView("extraDay")}>Se ekstra træningsdag</button>
             </article>
           )}
-          <button className="primary" onClick={() => startPlannedSession(todayProgram)}>Start dagens træning</button>
+          <button className="primary" onClick={() => startPlannedSession(activeToday)}>Start dagens træning</button>
           <article className="feedback-entry">
             <span className="feedback-entry-icon">◎</span>
             <div>
@@ -436,22 +446,29 @@ export default function Home() {
       {view === "week" && (
         <section className="screen enter">
           <button className="back" onClick={() => setView("today")}>← Tilbage</button>
-          <p className="eyebrow">TESTPERIODE · 3.–16. AUG</p>
+          <p className="eyebrow">TESTPERIODE · 11.–24. AUG</p>
           <h1>Dine næste to uger.</h1>
           <p className="lede">Åbn hvert planlagt pas, udfør alle sæt og fortsæt senere uden at miste din fremdrift.</p>
           <article className={testerId ? "tester-card connected" : "tester-card"}>
-            {testerId ? (
+            {testerId && trainingProfile ? (
               <>
                 <span className="tester-check">✓</span>
-                <div><strong>Forbundet som {testerId}</strong><small>Alle planlagte sæt gemmes på din testprofil.</small></div>
+                <div><strong>{testerId} · {swimProfileLabel(trainingProfile)}</strong><small>Dit to-ugers program og alle sæt gemmes på testprofilen.</small></div>
                 <button onClick={disconnectTester}>Skift</button>
               </>
             ) : (
               <>
-                <div className="tester-copy"><strong>Forbind dit tester-ID</strong><small>Brug samme ID som i spørgeskemaet, fx A1.</small></div>
+                <div className="tester-copy"><strong>{testerId ? "Vælg din primære distance" : "Forbind tester-ID og distance"}</strong><small>Vælg den profil, der bedst matcher din normale konkurrencetræning.</small></div>
+                <div className="profile-options" role="radiogroup" aria-label="Primær svømmedistance">
+                  {swimProfileOptions.map((option) => (
+                    <button type="button" role="radio" aria-checked={profileDraft === option.id} className={profileDraft === option.id ? "active" : ""} key={option.id} onClick={() => setProfileDraft(option.id)}>
+                      <strong>{option.label}</strong><small>{option.description}</small>
+                    </button>
+                  ))}
+                </div>
                 <div className="tester-connect">
-                  <input aria-label="Tester-ID" value={testerInput} onChange={(event) => setTesterInput(event.target.value)} placeholder="A1" maxLength={12} />
-                  <button onClick={connectTester} disabled={identityLoading}>{identityLoading ? "…" : "Forbind"}</button>
+                  {!testerId && <input aria-label="Tester-ID" value={testerInput} onChange={(event) => setTesterInput(event.target.value)} placeholder="A1" maxLength={12} />}
+                  <button onClick={connectTester} disabled={identityLoading || (!testerId && !testerInput.trim())}>{identityLoading ? "…" : testerId ? "Gem profil" : "Forbind"}</button>
                 </div>
               </>
             )}
@@ -459,11 +476,11 @@ export default function Home() {
           </article>
           <article className="week-summary">
             <div><strong>{weekTotals.sessions}</strong><span>planlagte pas</span></div>
-            <div><strong>{weekTotals.minutes}</strong><span>minutter</span></div>
-            <div><strong>{weekTotals.sets}</strong><span>arbejdssæt</span></div>
+            <div><strong>{(weekTotals.distance / 1000).toLocaleString("da-DK", { maximumFractionDigits: 1 })} km</strong><span>planlagt distance</span></div>
+            <div><strong>{swimProfileLabel(activeProfile)}</strong><span>profil</span></div>
           </article>
           <div className="week-list">
-            {twoWeekPlan.map((day) => {
+            {activePlan.map((day) => {
               const dayProgress = day.programId ? progress[day.programId] : undefined;
               const daySets = countProgramSets(day);
               return (
@@ -476,14 +493,14 @@ export default function Home() {
                 </div>
                 <div className="week-day-title">
                   <div><h3>{day.title}</h3><p>{day.focus}</p></div>
-                  {day.duration > 0 && <strong>{day.duration} min</strong>}
+                  {day.duration > 0 && <strong>{day.distanceMeters?.toLocaleString("da-DK")} m · {day.duration} min</strong>}
                 </div>
                 {day.exercises.length > 0 && (
                   <div className="week-exercises">
                     {day.exercises.map((exercise) => {
                       return (
                         <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
-                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
+                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps} · {exercise.restSeconds} sek pause</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
                         </button>
                       );
                     })}
@@ -681,12 +698,12 @@ export default function Home() {
           <h1>{readiness.text}</h1>
           <p className="lede">{readiness.reason}</p>
           <article className="change-card">
-            <div className="change-title"><span>Forslag til dagens plan</span><strong>{pain ? "Ingen tunge løft" : readiness.level === "Grøn" ? "Ingen ændring" : "−7 % belastning"}</strong></div>
+            <div className="change-title"><span>Forslag til dagens plan</span><strong>{pain ? "Ingen hård træning" : readiness.level === "Grøn" ? "Ingen ændring" : "Rolig intensitet"}</strong></div>
             <div className="weight-change"><div><small>Planlagt snatch</small><strong>70 kg</strong></div><span>→</span><div><small>Foreslået</small><strong>{pain ? "—" : readiness.level === "Grøn" ? "70 kg" : "65 kg"}</strong></div></div>
             <p>Du kan altid se den oprindelige plan og ændre beslutningen.</p>
           </article>
-          {!pain && <button className="primary" onClick={() => startPlannedSession(todayProgram, readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
-          <button className="secondary" onClick={() => startPlannedSession(todayProgram)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
+          {!pain && <button className="primary" onClick={() => startPlannedSession(activeToday, readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
+          <button className="secondary" onClick={() => startPlannedSession(activeToday)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
           <p className="safety">BASE giver træningsstøtte – ikke medicinsk rådgivning.</p>
         </section>
       )}
@@ -701,14 +718,14 @@ export default function Home() {
             <span>{exerciseVideos[currentExercise.name] ? "▶" : "⌕"}</span>
             <span><strong>{exerciseVideos[currentExercise.name] ? "Se teknikvideo" : "Find teknikvideo"}</strong><small>Åbnes uden at nulstille træningen</small></span>
           </button>
-          {adjusted && exerciseIndex === 0 && currentExercise.tracking !== "distance" && <div className="adjusted-note"><span>↘</span><div><strong>Tilpasset fra 70 kg</strong><small>Readiness · gul</small></div><button onClick={() => { setAdjusted(false); setWeight("70"); }}>Fortryd</button></div>}
+          {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Svøm med rolig intensitet</strong><small>Readiness · gul · behold teknisk kvalitet</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
           <div className="set-progress" style={{ gridTemplateColumns: `repeat(${currentExercise.sets}, 1fr)` }}>
             {Array.from({ length: currentExercise.sets }, (_, index) => (
               <span key={index} className={index < setIndex || (index === setIndex && setSaved) ? "done" : index === setIndex ? "current" : ""}>{index + 1}</span>
             ))}
           </div>
           <article className="log-card">
-            <div className="set-heading"><span>SÆT {setIndex + 1} AF {currentExercise.sets}</span><strong>{currentExercise.plannedReps}{currentExercise.tracking === "distance" ? "" : " reps"}</strong></div>
+            <div className="set-heading"><span>SÆT {setIndex + 1} AF {currentExercise.sets}</span><strong>{currentExercise.plannedReps}{currentExercise.tracking === "distance" ? currentExercise.restSeconds ? ` · ${currentExercise.restSeconds} sek pause` : "" : " reps"}</strong></div>
             <div className={`inputs ${currentExercise.tracking === "distance" ? "distance-inputs" : ""}`}>
               {currentExercise.tracking !== "distance" && <label>VÆGT<input inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} disabled={setSaved} /><span>kg</span></label>}
               <label>{currentExercise.tracking === "distance" ? "DISTANCE" : "REPS"}<input inputMode="text" value={reps} onChange={e => setReps(e.target.value)} disabled={setSaved} /></label>

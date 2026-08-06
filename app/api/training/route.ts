@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { trainingSessions, trainingSetLogs } from "../../../db/schema";
-import { countProgramSets, getProgram } from "../../program-data";
+import { testParticipants, trainingSessions, trainingSetLogs } from "../../../db/schema";
+import { countProgramSets } from "../../program-data";
+import { getSwimProgram } from "../../swim-program-data";
 import { getTesterId } from "../../../lib/tester-session";
 
 type TrainingPayload = {
@@ -61,13 +62,18 @@ export async function POST(request: Request) {
   try {
     const testerId = await requireTesterId();
     const payload = (await request.json()) as TrainingPayload;
-    const program = payload.programId ? getProgram(payload.programId) : undefined;
+    const db = getDb();
+    const [participant] = await db.select({ trainingProfile: testParticipants.trainingProfile })
+      .from(testParticipants).where(eq(testParticipants.testerId, testerId)).limit(1);
+    if (!participant?.trainingProfile) {
+      return Response.json({ error: "Vælg din svømmeprofil før du starter passet." }, { status: 400 });
+    }
+    const program = payload.programId ? getSwimProgram(payload.programId) : undefined;
 
-    if (!program || !program.programId || program.exercises.length === 0) {
+    if (!program || !program.programId || !program.programId.startsWith(`${participant.trainingProfile}-`) || program.exercises.length === 0) {
       return Response.json({ error: "Vælg et gyldigt planlagt pas." }, { status: 400 });
     }
 
-    const db = getDb();
     const plannedSets = countProgramSets(program);
     const sessionId = crypto.randomUUID();
 
@@ -110,7 +116,7 @@ export async function POST(request: Request) {
     const reps = cleanLogValue(payload.reps, 12);
     const rpe = cleanLogValue(payload.rpe, 8);
     if (!weight || !reps || !rpe) {
-      return Response.json({ error: "Udfyld vægt, reps og RPE før du gemmer." }, { status: 400 });
+      return Response.json({ error: "Udfyld distance og RPE før du gemmer." }, { status: 400 });
     }
 
     await db.insert(trainingSetLogs).values({

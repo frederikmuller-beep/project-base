@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { feedbackResponses, trainingSessions, trainingSetLogs } from "../../../../db/schema";
+import { feedbackResponses, testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { toCsv, type CsvValue } from "../../../../lib/csv";
 import { getPrivateAccessSecret, hasPrivateAccess } from "../../../../lib/private-access";
 
@@ -31,7 +31,7 @@ const csvResponse = (dataset: Dataset, csv: string) =>
 
 async function readExportData() {
   const db = getDb();
-  const [training, feedback] = await Promise.all([
+  const [training, feedback, participants] = await Promise.all([
     db.select({
       sessionId: trainingSessions.id,
       testerId: trainingSessions.testerId,
@@ -53,8 +53,9 @@ async function readExportData() {
       .orderBy(asc(trainingSessions.testerId), asc(trainingSessions.startedAt), asc(trainingSetLogs.exerciseIndex), asc(trainingSetLogs.setIndex)),
     db.select().from(feedbackResponses)
       .orderBy(asc(feedbackResponses.testerId), asc(feedbackResponses.createdAt)),
+    db.select().from(testParticipants).orderBy(asc(testParticipants.testerId)),
   ]);
-  return { training, feedback };
+  return { training, feedback, participants };
 }
 
 function trainingCsv(training: Awaited<ReturnType<typeof readExportData>>["training"]) {
@@ -85,6 +86,7 @@ function feedbackCsv(feedback: Awaited<ReturnType<typeof readExportData>>["feedb
 function overviewCsv(
   training: Awaited<ReturnType<typeof readExportData>>["training"],
   feedback: Awaited<ReturnType<typeof readExportData>>["feedback"],
+  participants: Awaited<ReturnType<typeof readExportData>>["participants"],
 ) {
   const summaries = new Map<string, {
     sessions: Set<string>;
@@ -92,14 +94,21 @@ function overviewCsv(
     sets: Set<number>;
     feedback: number;
     lastActivity: string;
+    trainingProfile: string | null;
   }>();
   const summaryFor = (testerId: string) => {
     const existing = summaries.get(testerId);
     if (existing) return existing;
-    const created = { sessions: new Set<string>(), completedSessions: new Set<string>(), sets: new Set<number>(), feedback: 0, lastActivity: "" };
+    const created = { sessions: new Set<string>(), completedSessions: new Set<string>(), sets: new Set<number>(), feedback: 0, lastActivity: "", trainingProfile: null as string | null };
     summaries.set(testerId, created);
     return created;
   };
+
+  for (const participant of participants) {
+    const summary = summaryFor(participant.testerId);
+    summary.trainingProfile = participant.trainingProfile;
+    summary.lastActivity = participant.lastSeenAt;
+  }
 
   for (const row of training) {
     const summary = summaryFor(row.testerId);
@@ -118,11 +127,11 @@ function overviewCsv(
   const rows = [...summaries.entries()]
     .sort(([left], [right]) => left.localeCompare(right, "da"))
     .map(([testerId, summary]): CsvValue[] => [
-      testerId, summary.sessions.size, summary.completedSessions.size, summary.sets.size,
+      testerId, summary.trainingProfile, summary.sessions.size, summary.completedSessions.size, summary.sets.size,
       summary.feedback, summary.lastActivity,
     ]);
   return toCsv(
-    ["tester_id", "sessions_started", "sessions_completed", "sets_logged", "feedback_responses", "last_activity_at"],
+    ["tester_id", "training_profile", "sessions_started", "sessions_completed", "sets_logged", "feedback_responses", "last_activity_at"],
     rows,
   );
 }
@@ -144,12 +153,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { training, feedback } = await readExportData();
+    const { training, feedback, participants } = await readExportData();
     const csv = requestedDataset === "training"
       ? trainingCsv(training)
       : requestedDataset === "feedback"
         ? feedbackCsv(feedback)
-        : overviewCsv(training, feedback);
+        : overviewCsv(training, feedback, participants);
     return csvResponse(requestedDataset, csv);
   } catch {
     return Response.json({ error: "Testdata kunne ikke eksporteres." }, {

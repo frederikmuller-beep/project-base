@@ -120,4 +120,12 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Enarmsbutterfly", category: "Svømning", target: "Butterfly · timing", cue: "Bevar to benspark pr. cyklus og en lav fremføring", sets: "4", reps: "25 m", weight: "0", format: "distance" },
   { name: "Crawl med pull buoy", category: "Svømning", target: "Crawl · armtag", cue: "Hold benene rolige og fasthold et tidligt indgreb", sets: "6", reps: "50 m", weight: "0", format: "distance" },
   { name: "Teknikcrawl med paddles", category: "Svømning", target: "Crawl · greb", cue: "Svøm kontrolleret og stop hvis grebet eller skulderen svigter", sets: "4", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Indsvømning", category: "Svømning", target: "Opvarmning · rytme", cue: "Start roligt og øg bevægeudslaget gradvist", sets: "4", reps: "100 m", weight: "0", format: "distance" },
+  { name: "Aerob crawl", category: "Svømning", target: "Udholdenhed · pacing", cue: "Hold et tempo du kan gentage med samme teknik", sets: "6", reps: "200 m", weight: "0", format: "distance" },
+  { name: "Tærskel crawl", category: "Svømning", target: "Tærskel · fartkontrol", cue: "Svøm kontrolleret hårdt med ensartede splittider", sets: "8", reps: "100 m", weight: "0", format: "distance" },
+  { name: "Race pace", category: "Svømning", target: "Konkurrencefart · rytme", cue: "Prioritér præcis fart og teknik frem for ekstra gentagelser", sets: "8", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Sprint fra afsæt", category: "Svømning", target: "Acceleration · topfart", cue: "Eksplodér fra væggen og stop før teknikken falder", sets: "8", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Startspring og undervand", category: "Svømning", target: "Start · breakout", cue: "Gentag samme opsætning og hold en stram streamline", sets: "8", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Vendingstræning", category: "Svømning", target: "Vending · acceleration", cue: "Gå hurtigt ind, roter kompakt og skub i en fast linje", sets: "8", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Udsvømning", category: "Svømning", target: "Restitution · bevægelse", cue: "Sænk tempoet og find en rolig vejrtrækning", sets: "4", reps: "100 m", weight: "0", format: "distance" },
 ];

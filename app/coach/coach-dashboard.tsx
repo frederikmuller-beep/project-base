@@ -16,6 +16,8 @@ type AthleteSession = {
 
 type Athlete = {
   testerId: string;
+  trainingProfile: "long_distance" | "middle_distance" | "sprint" | null;
+  trainingProfileLabel: string;
   lastActiveAt: string | null;
   sessionsStarted: number;
   sessionsCompleted: number;
@@ -88,7 +90,7 @@ export function CoachDashboard() {
               {athletes.map((athlete) => (
                 <button key={athlete.testerId} className={selectedId === athlete.testerId ? "active" : ""} onClick={() => setSelectedId(athlete.testerId)}>
                   <span className="athlete-avatar">{athlete.testerId.slice(0, 2)}</span>
-                  <span><strong>{athlete.testerId}</strong><small>{athlete.sessionsCompleted}/{athlete.sessionsStarted} pas · {athlete.setsLogged} sæt</small></span>
+                  <span><strong>{athlete.testerId}</strong><small>{athlete.trainingProfileLabel} · {athlete.sessionsCompleted}/{athlete.sessionsStarted} pas</small></span>
                   <b>→</b>
                 </button>
               ))}
@@ -96,7 +98,7 @@ export function CoachDashboard() {
 
             {selected && (
               <section className="athlete-detail">
-                <div className="athlete-detail-head"><div><span>ATLET</span><h2>{selected.testerId}</h2></div><small>Senest aktiv<br />{dateLabel(selected.lastActiveAt)}</small></div>
+                <div className="athlete-detail-head"><div><span>ATLET · {selected.trainingProfileLabel.toLocaleUpperCase("da-DK")}</span><h2>{selected.testerId}</h2></div><small>Senest aktiv<br />{dateLabel(selected.lastActiveAt)}</small></div>
                 {selected.sessions.length === 0 ? (
                   <div className="coach-empty"><strong>Ingen træning registreret endnu.</strong><span>Atleten vises, så snart tester-ID’et er forbundet.</span></div>
                 ) : selected.sessions.map((session) => (
