@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { testParticipants, trainingSessions, trainingSetLogs } from "../../../db/schema";
-import { countProgramSets } from "../../program-data";
+import { countProgramSets, getProgram } from "../../program-data";
 import { getSwimProgram } from "../../swim-program-data";
 import { getTesterId } from "../../../lib/tester-session";
 
@@ -66,11 +66,16 @@ export async function POST(request: Request) {
     const [participant] = await db.select({ trainingProfile: testParticipants.trainingProfile })
       .from(testParticipants).where(eq(testParticipants.testerId, testerId)).limit(1);
     if (!participant?.trainingProfile) {
-      return Response.json({ error: "Vælg din svømmeprofil før du starter passet." }, { status: 400 });
+      return Response.json({ error: "Vælg din træningsprofil før du starter passet." }, { status: 400 });
     }
-    const program = payload.programId ? getSwimProgram(payload.programId) : undefined;
+    const program = payload.programId
+      ? participant.trainingProfile === "weightlifting" ? getProgram(payload.programId) : getSwimProgram(payload.programId)
+      : undefined;
 
-    if (!program || !program.programId || !program.programId.startsWith(`${participant.trainingProfile}-`) || program.exercises.length === 0) {
+    const matchesProfile = participant.trainingProfile === "weightlifting"
+      ? Boolean(program && getProgram(program.programId ?? ""))
+      : Boolean(program?.programId?.startsWith(`${participant.trainingProfile}-`));
+    if (!program || !program.programId || !matchesProfile || program.exercises.length === 0) {
       return Response.json({ error: "Vælg et gyldigt planlagt pas." }, { status: 400 });
     }
 
@@ -116,7 +121,7 @@ export async function POST(request: Request) {
     const reps = cleanLogValue(payload.reps, 12);
     const rpe = cleanLogValue(payload.rpe, 8);
     if (!weight || !reps || !rpe) {
-      return Response.json({ error: "Udfyld distance og RPE før du gemmer." }, { status: 400 });
+      return Response.json({ error: "Udfyld sættets data og RPE før du gemmer." }, { status: 400 });
     }
 
     await db.insert(trainingSetLogs).values({

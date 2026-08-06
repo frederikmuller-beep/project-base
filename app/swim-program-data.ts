@@ -1,6 +1,7 @@
-import type { ProgramDay, SessionExercise } from "./program-data";
+import { twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
 
 export type SwimProfile = "long_distance" | "middle_distance" | "sprint";
+export type TrainingProfile = "weightlifting" | SwimProfile;
 
 export const swimProfileOptions: Array<{ id: SwimProfile; label: string; short: string; description: string }> = [
   { id: "long_distance", label: "Langdistance", short: "LANG", description: "Længere aerobe serier, stabil fart og effektiv teknik." },
@@ -8,8 +9,15 @@ export const swimProfileOptions: Array<{ id: SwimProfile; label: string; short: 
   { id: "sprint", label: "Sprint", short: "SPRINT", description: "Korte kvalitetsintervaller, maksimal fart og lange pauser." },
 ];
 
-export const swimProfileLabel = (profile: SwimProfile | null | undefined) =>
-  swimProfileOptions.find((option) => option.id === profile)?.label ?? "Ikke valgt";
+export const trainingProfileOptions: Array<{ id: TrainingProfile; label: string; short: string; description: string }> = [
+  { id: "weightlifting", label: "Vægtløftning", short: "VL", description: "Det oprindelige BASE-program med teknik, styrke og konkurrenceløft." },
+  ...swimProfileOptions,
+];
+
+export const trainingProfileLabel = (profile: TrainingProfile | null | undefined) =>
+  trainingProfileOptions.find((option) => option.id === profile)?.label ?? "Ikke valgt";
+
+export const swimProfileLabel = trainingProfileLabel;
 
 const swim = (name: string, sets: number, meters: number, restSeconds: number, focus: string): SessionExercise => ({
   name,
@@ -117,3 +125,5 @@ export const defaultSwimProfile: SwimProfile = "middle_distance";
 export const getSwimPlan = (profile: SwimProfile) => swimPlans[profile];
 export const getSwimProgram = (programId: string) => Object.values(swimPlans).flat().find((day) => day.programId === programId);
 export const isSwimProfile = (value: unknown): value is SwimProfile => swimProfileOptions.some((option) => option.id === value);
+export const isTrainingProfile = (value: unknown): value is TrainingProfile => trainingProfileOptions.some((option) => option.id === value);
+export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : getSwimPlan(profile);

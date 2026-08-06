@@ -6,7 +6,7 @@ import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, type ProgramDay, type SessionExercise } from "./program-data";
-import { defaultSwimProfile, getSwimPlan, swimProfileLabel, swimProfileOptions, type SwimProfile } from "./swim-program-data";
+import { defaultSwimProfile, getSwimPlan, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
 
 type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
@@ -66,8 +66,8 @@ export default function Home() {
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
   const [videoExercise, setVideoExercise] = useState<string | null>(null);
   const [testerId, setTesterId] = useState<string | null>(null);
-  const [trainingProfile, setTrainingProfile] = useState<SwimProfile | null>(null);
-  const [profileDraft, setProfileDraft] = useState<SwimProfile>(defaultSwimProfile);
+  const [trainingProfile, setTrainingProfile] = useState<TrainingProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<TrainingProfile>(defaultSwimProfile);
   const [testerInput, setTesterInput] = useState("");
   const [identityLoading, setIdentityLoading] = useState(true);
   const [identityError, setIdentityError] = useState("");
@@ -77,7 +77,7 @@ export default function Home() {
   const [savingSet, setSavingSet] = useState(false);
   const [saveError, setSaveError] = useState("");
   const activeProfile = trainingProfile ?? profileDraft;
-  const activePlan = useMemo(() => getSwimPlan(activeProfile), [activeProfile]);
+  const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
   const activeToday = activePlan[0];
   const weekTotals = useMemo(() => activePlan.reduce(
     (totals, day) => ({
@@ -158,7 +158,7 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
-      .then(async (response) => response.json() as Promise<{ testerId: string | null; trainingProfile: SwimProfile | null }>)
+      .then(async (response) => response.json() as Promise<{ testerId: string | null; trainingProfile: TrainingProfile | null }>)
       .then(async (data) => {
         if (!active) return;
         setTesterId(data.testerId);
@@ -180,7 +180,7 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ testerId: testerId ?? testerInput, trainingProfile: profileDraft }),
       });
-      const data = (await response.json()) as { testerId?: string; trainingProfile?: SwimProfile; error?: string };
+      const data = (await response.json()) as { testerId?: string; trainingProfile?: TrainingProfile; error?: string };
       if (!response.ok || !data.testerId) throw new Error(data.error ?? "Tester-ID kunne ikke gemmes.");
       setTesterId(data.testerId);
       setTrainingProfile(data.trainingProfile ?? profileDraft);
@@ -376,18 +376,18 @@ export default function Home() {
 
       {view === "today" && (
         <section className="screen enter">
-          <p className="eyebrow">TIRSDAG · 11. AUGUST</p>
+          <p className="eyebrow">{activeProfile === "weightlifting" ? "MANDAG · 3. AUGUST" : "TIRSDAG · 11. AUGUST"}</p>
           <h1>God træning.</h1>
-          <p className="lede">Dit program er tilpasset {swimProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
+          <p className="lede">Dit program er tilpasset {trainingProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
 
           <article className="hero-card">
-            <div className="hero-meta"><span>SVØMNING · {swimProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}</span><span>{activeToday.duration} MIN</span></div>
+            <div className="hero-meta"><span>{activeProfile === "weightlifting" ? "VÆGTLØFTNING" : `SVØMNING · ${trainingProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}`}</span><span>{activeToday.duration} MIN</span></div>
             <h2>{activeToday.title}</h2>
             <p>{activeToday.focus}.</p>
             <div className="session-stats">
               <div><strong>{activeToday.exercises.length}</strong><span>blokke</span></div>
               <div><strong>{countProgramSets(activeToday)}</strong><span>arbejdssæt</span></div>
-              <div><strong>{activeToday.distanceMeters?.toLocaleString("da-DK")} m</strong><span>planlagt distance</span></div>
+              <div><strong>{activeProfile === "weightlifting" ? "3.050 kg" : `${activeToday.distanceMeters?.toLocaleString("da-DK")} m`}</strong><span>{activeProfile === "weightlifting" ? "samlet volumen" : "planlagt distance"}</span></div>
             </div>
           </article>
 
@@ -446,21 +446,21 @@ export default function Home() {
       {view === "week" && (
         <section className="screen enter">
           <button className="back" onClick={() => setView("today")}>← Tilbage</button>
-          <p className="eyebrow">TESTPERIODE · 11.–24. AUG</p>
+          <p className="eyebrow">{activeProfile === "weightlifting" ? "TESTPERIODE · 3.–16. AUG" : "TESTPERIODE · 11.–24. AUG"}</p>
           <h1>Dine næste to uger.</h1>
           <p className="lede">Åbn hvert planlagt pas, udfør alle sæt og fortsæt senere uden at miste din fremdrift.</p>
           <article className={testerId ? "tester-card connected" : "tester-card"}>
             {testerId && trainingProfile ? (
               <>
                 <span className="tester-check">✓</span>
-                <div><strong>{testerId} · {swimProfileLabel(trainingProfile)}</strong><small>Dit to-ugers program og alle sæt gemmes på testprofilen.</small></div>
+                <div><strong>{testerId} · {trainingProfileLabel(trainingProfile)}</strong><small>Dit to-ugers program og alle sæt gemmes på testprofilen.</small></div>
                 <button onClick={disconnectTester}>Skift</button>
               </>
             ) : (
               <>
-                <div className="tester-copy"><strong>{testerId ? "Vælg din primære distance" : "Forbind tester-ID og distance"}</strong><small>Vælg den profil, der bedst matcher din normale konkurrencetræning.</small></div>
-                <div className="profile-options" role="radiogroup" aria-label="Primær svømmedistance">
-                  {swimProfileOptions.map((option) => (
+                <div className="tester-copy"><strong>{testerId ? "Vælg din træningsprofil" : "Forbind tester-ID og træningsprofil"}</strong><small>Vælg den profil, der matcher den træning, du allerede tester i BASE.</small></div>
+                <div className="profile-options" role="radiogroup" aria-label="Træningsprofil">
+                  {trainingProfileOptions.map((option) => (
                     <button type="button" role="radio" aria-checked={profileDraft === option.id} className={profileDraft === option.id ? "active" : ""} key={option.id} onClick={() => setProfileDraft(option.id)}>
                       <strong>{option.label}</strong><small>{option.description}</small>
                     </button>
@@ -476,8 +476,8 @@ export default function Home() {
           </article>
           <article className="week-summary">
             <div><strong>{weekTotals.sessions}</strong><span>planlagte pas</span></div>
-            <div><strong>{(weekTotals.distance / 1000).toLocaleString("da-DK", { maximumFractionDigits: 1 })} km</strong><span>planlagt distance</span></div>
-            <div><strong>{swimProfileLabel(activeProfile)}</strong><span>profil</span></div>
+            <div><strong>{activeProfile === "weightlifting" ? `${weekTotals.minutes} min` : `${(weekTotals.distance / 1000).toLocaleString("da-DK", { maximumFractionDigits: 1 })} km`}</strong><span>{activeProfile === "weightlifting" ? "planlagt tid" : "planlagt distance"}</span></div>
+            <div><strong>{trainingProfileLabel(activeProfile)}</strong><span>profil</span></div>
           </article>
           <div className="week-list">
             {activePlan.map((day) => {
@@ -493,14 +493,14 @@ export default function Home() {
                 </div>
                 <div className="week-day-title">
                   <div><h3>{day.title}</h3><p>{day.focus}</p></div>
-                  {day.duration > 0 && <strong>{day.distanceMeters?.toLocaleString("da-DK")} m · {day.duration} min</strong>}
+                  {day.duration > 0 && <strong>{day.distanceMeters ? `${day.distanceMeters.toLocaleString("da-DK")} m · ` : ""}{day.duration} min</strong>}
                 </div>
                 {day.exercises.length > 0 && (
                   <div className="week-exercises">
                     {day.exercises.map((exercise) => {
                       return (
                         <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
-                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps} · {exercise.restSeconds} sek pause</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
+                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
                         </button>
                       );
                     })}

@@ -61,7 +61,10 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.equal((middleSessions.match(/\{ title:/g) ?? []).length, 10);
   assert.equal((sprintSessions.match(/\{ title:/g) ?? []).length, 10);
   assert.match(page, /profile-options/);
-  assert.match(page, /swimProfileOptions/);
+  assert.match(page, /trainingProfileOptions/);
+  assert.match(page, /activeProfile === "weightlifting"/);
+  assert.match(swimProgramData, /id: "weightlifting", label: "Vægtløftning"/);
+  assert.match(swimProgramData, /getTrainingPlan/);
 
   assert.match(feedbackForm, /TESTFEEDBACK · 1 MIN/);
   assert.match(feedbackForm, /AFSLUTTENDE EVALUERING · 5–7 MIN/);
@@ -221,10 +224,13 @@ test("persists and enforces each swimmer's selected distance profile", async () 
   ]);
 
   assert.match(schema, /trainingProfile/);
-  assert.match(schema, /"long_distance", "middle_distance", "sprint"/);
-  assert.match(participantRoute, /isSwimProfile/);
+  assert.match(schema, /"weightlifting", "long_distance", "middle_distance", "sprint"/);
+  assert.match(participantRoute, /isTrainingProfile/);
+  assert.match(participantRoute, /inferredProfile = sessions\.some/);
+  assert.match(participantRoute, /getProgram\(session\.programId\)/);
   assert.match(participantRoute, /trainingProfile: payload\.trainingProfile/);
-  assert.match(trainingRoute, /programId\.startsWith\(`\$\{participant\.trainingProfile\}-`\)/);
+  assert.match(trainingRoute, /programId\?\.startsWith\(`\$\{participant\.trainingProfile\}-`\)/);
+  assert.match(trainingRoute, /participant\.trainingProfile === "weightlifting"/);
   assert.match(coachRoute, /trainingProfileLabel/);
   assert.match(dashboard, /athlete\.trainingProfileLabel/);
   assert.match(migration, /ADD `training_profile` text/);

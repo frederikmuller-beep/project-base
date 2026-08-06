@@ -54,3 +54,5 @@ h1 { font-size:34px; line-height:1.04; letter-spacing:-1.7px; margin:0 0 10px; }
 @media (max-width:480px){.app-shell{box-shadow:none}.screen{padding-left:18px;padding-right:18px}h1{font-size:32px}.check-grid{grid-template-columns:1fr}.check-grid .check-choice:last-child{grid-column:auto}.profile-options{grid-template-columns:1fr}.profile-options button{min-height:0}}
 @media (max-width:700px){.coach-shell{padding:30px 18px 45px}.coach-access-card,.coach-assignment-card{grid-template-columns:1fr}.coach-layout{grid-template-columns:1fr}.athlete-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.athlete-list button{grid-template-columns:34px 1fr}.athlete-list button>b{display:none}.athlete-avatar{width:34px;height:34px}.athlete-detail{margin-top:6px}}
 @media (prefers-reduced-motion:reduce){.enter{animation:none}.toggle span{transition:none}}
+.profile-options{grid-template-columns:repeat(2,1fr)}
+@media (max-width:480px){.profile-options{grid-template-columns:1fr}}

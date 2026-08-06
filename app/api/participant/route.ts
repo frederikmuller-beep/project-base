@@ -1,8 +1,9 @@
 import { clearTesterId, getTesterId, normalizeTesterId, setTesterId } from "../../../lib/tester-session";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { testParticipants } from "../../../db/schema";
-import { isSwimProfile } from "../../swim-program-data";
+import { testParticipants, trainingSessions } from "../../../db/schema";
+import { getProgram } from "../../program-data";
+import { isTrainingProfile } from "../../swim-program-data";
 
 export async function GET() {
   const testerId = await getTesterId();
@@ -10,7 +11,14 @@ export async function GET() {
   try {
     const [participant] = await getDb().select({ trainingProfile: testParticipants.trainingProfile })
       .from(testParticipants).where(eq(testParticipants.testerId, testerId)).limit(1);
-    return Response.json({ testerId, trainingProfile: participant?.trainingProfile ?? null });
+    if (participant?.trainingProfile) return Response.json({ testerId, trainingProfile: participant.trainingProfile });
+    const sessions = await getDb().select({ programId: trainingSessions.programId })
+      .from(trainingSessions).where(eq(trainingSessions.testerId, testerId));
+    const inferredProfile = sessions.some((session) => getProgram(session.programId)) ? "weightlifting" : null;
+    if (inferredProfile) {
+      await getDb().update(testParticipants).set({ trainingProfile: inferredProfile }).where(eq(testParticipants.testerId, testerId));
+    }
+    return Response.json({ testerId, trainingProfile: inferredProfile });
   } catch {
     return Response.json({ testerId, trainingProfile: null });
   }
@@ -23,8 +31,8 @@ export async function POST(request: Request) {
   if (!testerId) {
     return Response.json({ error: "Indtast dit tester-ID, fx A1 eller T1." }, { status: 400 });
   }
-  if (!isSwimProfile(payload.trainingProfile)) {
-    return Response.json({ error: "Vælg Langdistance, Mellemdistance eller Sprint." }, { status: 400 });
+  if (!isTrainingProfile(payload.trainingProfile)) {
+    return Response.json({ error: "Vælg Vægtløftning, Langdistance, Mellemdistance eller Sprint." }, { status: 400 });
   }
 
   await setTesterId(testerId);
