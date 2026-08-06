@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../lib/health-data";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
@@ -76,6 +77,7 @@ export default function Home() {
   const [identityLoading, setIdentityLoading] = useState(true);
   const [identityError, setIdentityError] = useState("");
   const [progress, setProgress] = useState<Record<string, SessionProgress>>({});
+  const [healthSummary, setHealthSummary] = useState<HealthSummary | null>(null);
   const [sessionProgramId, setSessionProgramId] = useState<string | null>(null);
   const [savingSet, setSavingSet] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -130,6 +132,13 @@ export default function Home() {
     setProgress(Object.fromEntries((data.sessions ?? []).map((session) => [session.programId, session])));
   };
 
+  const loadHealthSummary = async () => {
+    const response = await fetch("/api/health/summary", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = (await response.json()) as { summary?: HealthSummary };
+    setHealthSummary(data.summary ?? null);
+  };
+
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
@@ -137,7 +146,7 @@ export default function Home() {
       .then(async (data) => {
         if (!active) return;
         setTesterId(data.testerId);
-        if (data.testerId) await loadProgress();
+        if (data.testerId) await Promise.all([loadProgress(), loadHealthSummary()]);
       })
       .catch(() => undefined)
       .finally(() => { if (active) setIdentityLoading(false); });
@@ -157,7 +166,7 @@ export default function Home() {
       if (!response.ok || !data.testerId) throw new Error(data.error ?? "Tester-ID kunne ikke gemmes.");
       setTesterId(data.testerId);
       setTesterInput("");
-      await loadProgress();
+      await Promise.all([loadProgress(), loadHealthSummary()]);
     } catch (error) {
       setIdentityError(error instanceof Error ? error.message : "Tester-ID kunne ikke gemmes.");
     } finally {
@@ -169,6 +178,7 @@ export default function Home() {
     await fetch("/api/participant", { method: "DELETE" });
     setTesterId(null);
     setProgress({});
+    setHealthSummary(null);
     setIdentityError("");
   };
 
@@ -617,6 +627,23 @@ export default function Home() {
           <p className="eyebrow">DAGLIGT CHECK-IN</p>
           <h1>Hvordan har kroppen det?</h1>
           <p className="lede">Svar ud fra hvordan du har det lige nu.</p>
+          {healthSummary?.available && healthSummary.latest && (
+            <article className="health-context-card">
+              <div className="health-context-head">
+                <div><span>DATA FRA</span><strong>{healthProviderLabel(healthSummary.provider)}</strong></div>
+                <div className={`health-trend ${healthSummary.trend}`}><span />{healthTrendLabel(healthSummary.trend)}</div>
+              </div>
+              <div className="health-context-metrics">
+                {healthSummary.latest.sleepDurationMinutes !== null && (
+                  <div><strong>{Math.floor(healthSummary.latest.sleepDurationMinutes / 60)}t {healthSummary.latest.sleepDurationMinutes % 60}m</strong><span>Søvn</span></div>
+                )}
+                {healthSummary.latest.sleepScore !== null && <div><strong>{healthSummary.latest.sleepScore}</strong><span>Søvnscore</span></div>}
+                {healthSummary.latest.restingHeartRate !== null && <div><strong>{healthSummary.latest.restingHeartRate}</strong><span>Hvilepuls</span></div>}
+                {healthSummary.latest.hrvMs !== null && <div><strong>{healthSummary.latest.hrvMs} ms</strong><span>HRV</span></div>}
+              </div>
+              <p>{healthSummary.daysIncluded} dages data · bruges som kontekst, ikke til automatisk at ændre planen.</p>
+            </article>
+          )}
           <Metric label="Energi" low="Flad" high="Stærk" value={energy} setValue={setEnergy} />
           <Metric label="Søvnkvalitet" low="Dårlig" high="God" value={sleep} setValue={setSleep} />
           <Metric label="Muskelømhed" low="Ingen" high="Meget" value={soreness} setValue={setSoreness} />

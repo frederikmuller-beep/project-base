@@ -15,6 +15,13 @@
       "when": 1785774414753,
       "tag": "0001_dapper_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785998997515,
+      "tag": "0002_unique_rogue",
+      "breakpoints": true
     }
   ]
 }

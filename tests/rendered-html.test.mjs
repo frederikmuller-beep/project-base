@@ -104,3 +104,33 @@ test("persists each tester's planned-session progress and set logs in D1", async
   assert.match(migration, /CREATE TABLE `training_sessions`/);
   assert.match(migration, /CREATE TABLE `training_set_logs`/);
 });
+
+test("keeps future Apple Health and Garmin integrations provider-neutral", async () => {
+  const [schema, healthData, summaryRoute, page, migration, documentation] = await Promise.all([
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/health-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/health/summary/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0002_unique_rogue.sql", import.meta.url), "utf8"),
+    readFile(new URL("../docs/health-integrations.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(schema, /healthConnections/);
+  assert.match(schema, /dailyHealthMetrics/);
+  assert.match(schema, /"apple_health", "garmin"/);
+  assert.match(schema, /sleepDurationMinutes/);
+  assert.match(schema, /restingHeartRate/);
+  assert.match(schema, /hrvMethod/);
+  assert.match(healthData, /buildHealthSummary/);
+  assert.match(healthData, /signals\.length >= 2/);
+  assert.match(summaryRoute, /getTesterId/);
+  assert.match(summaryRoute, /\.limit\(14\)/);
+  assert.doesNotMatch(summaryRoute, /export async function POST/);
+  assert.match(page, /\/api\/health\/summary/);
+  assert.match(page, /bruges som kontekst, ikke til automatisk at ændre planen/);
+  assert.match(migration, /CREATE TABLE `health_connections`/);
+  assert.match(migration, /CREATE TABLE `daily_health_metrics`/);
+  assert.match(documentation, /ingen offentlig POST-endpoint/i);
+  assert.match(documentation, /Apple Health/);
+  assert.match(documentation, /Garmin/);
+});

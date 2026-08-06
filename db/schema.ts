@@ -37,3 +37,37 @@ export const trainingSetLogs = sqliteTable("training_set_logs", {
   uniqueIndex("idx_training_set_logs_session_position").on(table.sessionId, table.exerciseIndex, table.setIndex),
   index("idx_training_set_logs_session").on(table.sessionId),
 ]);
+
+export const healthConnections = sqliteTable("health_connections", {
+  id: text("id").primaryKey(),
+  testerId: text("tester_id").notNull(),
+  provider: text("provider", { enum: ["apple_health", "garmin"] }).notNull(),
+  status: text("status", { enum: ["pending", "connected", "disconnected", "error"] }).notNull().default("pending"),
+  providerUserId: text("provider_user_id"),
+  connectedAt: text("connected_at"),
+  lastSyncedAt: text("last_synced_at"),
+  disconnectedAt: text("disconnected_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_health_connections_tester_provider").on(table.testerId, table.provider),
+  index("idx_health_connections_tester").on(table.testerId),
+]);
+
+export const dailyHealthMetrics = sqliteTable("daily_health_metrics", {
+  id: text("id").primaryKey(),
+  testerId: text("tester_id").notNull(),
+  provider: text("provider", { enum: ["apple_health", "garmin"] }).notNull(),
+  metricDate: text("metric_date").notNull(),
+  sleepDurationMinutes: integer("sleep_duration_minutes"),
+  sleepScore: integer("sleep_score"),
+  restingHeartRate: integer("resting_heart_rate"),
+  hrvMs: integer("hrv_ms"),
+  hrvMethod: text("hrv_method", { enum: ["sdnn", "rmssd", "nightly_average", "unknown"] }),
+  sourceUpdatedAt: text("source_updated_at").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_daily_health_metrics_tester_provider_date").on(table.testerId, table.provider, table.metricDate),
+  index("idx_daily_health_metrics_tester_date").on(table.testerId, table.metricDate),
+]);
