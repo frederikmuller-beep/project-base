@@ -10,6 +10,12 @@ export const feedbackResponses = sqliteTable("feedback_responses", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const testParticipants = sqliteTable("test_participants", {
+  testerId: text("tester_id").primaryKey(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const trainingSessions = sqliteTable("training_sessions", {
   id: text("id").primaryKey(),
   testerId: text("tester_id").notNull(),

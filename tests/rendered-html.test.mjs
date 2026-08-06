@@ -54,9 +54,13 @@ test("keeps the BASE dashboard, two-week plan and both feedback entry points", a
 
   const exerciseRows = exerciseData.split("\n").filter((line) => line.startsWith("  { name:"));
   const exerciseNames = exerciseRows.map((line) => line.match(/name: "([^"]+)"/)?.[1]);
-  assert.equal(exerciseRows.length, 90);
-  assert.equal(new Set(exerciseNames).size, 90);
+  assert.equal(exerciseRows.length, 110);
+  assert.equal(new Set(exerciseNames).size, 110);
   assert.ok(exerciseRows.every((line) => /sets: "[^"]+", reps: "[^"]+", weight: "[^"]+"/.test(line)));
+  assert.equal(exerciseRows.filter((line) => /category: "Svømning"/.test(line)).length, 20);
+  assert.equal(exerciseRows.filter((line) => /format: "distance"/.test(line)).length, 20);
+  assert.match(page, /currentExercise\.tracking === "distance"/);
+  assert.match(page, /svømmedistance/);
 
   const videoRows = exerciseVideoData.split("\n").filter((line) => /^  "[^"]+": \{ youtubeId:/.test(line));
   const videoIds = videoRows.map((line) => line.match(/youtubeId: "([^"]+)"/)?.[1]);
@@ -136,15 +140,17 @@ test("keeps future Apple Health and Garmin integrations provider-neutral", async
 });
 
 test("protects internal CSV exports and exposes only the intended test datasets", async () => {
-  const [route, panel, csv] = await Promise.all([
+  const [route, panel, csv, privateAccess] = await Promise.all([
     readFile(new URL("../app/api/admin/export/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/export/export-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/csv.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/private-access.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(route, /BASE_EXPORT_KEY/);
-  assert.match(route, /authorization/);
-  assert.match(route, /secureEqual/);
+  assert.match(route, /hasPrivateAccess/);
+  assert.match(privateAccess, /authorization/);
+  assert.match(privateAccess, /secureEqual/);
   assert.match(route, /private, no-store/);
   assert.match(route, /overview.*training.*feedback/);
   assert.doesNotMatch(route, /dailyHealthMetrics|healthConnections/);
@@ -153,4 +159,27 @@ test("protects internal CSV exports and exposes only the intended test datasets"
   assert.doesNotMatch(panel, /localStorage|sessionStorage/);
   assert.match(csv, /spreadsheetFormulaPattern/);
   assert.match(csv, /replaceAll\('\"', '\"\"'\)/);
+});
+
+test("protects the coach view and limits it to pseudonymous training data", async () => {
+  const [schema, participantRoute, coachRoute, dashboard, coachPage, migration] = await Promise.all([
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/coach/athletes/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/coach/coach-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/coach/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0003_ambiguous_pretty_boy.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(schema, /testParticipants/);
+  assert.match(participantRoute, /insert\(testParticipants\)/);
+  assert.match(coachRoute, /BASE_COACH_KEY/);
+  assert.match(coachRoute, /trainingSessions/);
+  assert.match(coachRoute, /trainingSetLogs/);
+  assert.doesNotMatch(coachRoute, /feedbackResponses|dailyHealthMetrics|healthConnections/);
+  assert.match(dashboard, /\/api\/coach\/athletes/);
+  assert.match(dashboard, /Feedback, readiness og helbredsdata deles ikke/);
+  assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
+  assert.match(coachPage, /robots: \{ index: false, follow: false \}/);
+  assert.match(migration, /CREATE TABLE `test_participants`/);
 });

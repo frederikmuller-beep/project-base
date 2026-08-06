@@ -1,11 +1,12 @@
 export type ExerciseDefinition = {
   name: string;
-  category: "Konkurrenceløft" | "Snatch" | "Clean" | "Jerk" | "Squat" | "Træk" | "Assistance";
+  category: "Konkurrenceløft" | "Snatch" | "Clean" | "Jerk" | "Squat" | "Træk" | "Assistance" | "Svømning";
   target: string;
   cue: string;
   sets: string;
   reps: string;
   weight: string;
+  format?: "load" | "distance";
 };
 
 export const exerciseLibrary: ExerciseDefinition[] = [
@@ -99,4 +100,24 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Pull-up", category: "Assistance", target: "Ryg · greb", cue: "Start med aktive skuldre og undgå kip", sets: "4", reps: "6", weight: "0" },
   { name: "Romanian deadlift", category: "Assistance", target: "Baglår · bagkæde", cue: "Skub hoften tilbage med neutral ryg", sets: "4", reps: "8", weight: "90" },
   { name: "Plank", category: "Assistance", target: "Core · stabilitet", cue: "Spænd balder og hold ribben nede", sets: "4", reps: "30", weight: "0" },
+  { name: "Crawl catch-up", category: "Svømning", target: "Crawl · timing", cue: "Lad hænderne mødes foran kroppen før næste armtag", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl med knyttede næver", category: "Svømning", target: "Crawl · vandføling", cue: "Hold høj albue og mærk trykket på underarmen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl fingertip drag", category: "Svømning", target: "Crawl · afslappet fremføring", cue: "Lad fingerspidserne strejfe vandet med høj albue", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmscrawl", category: "Svømning", target: "Crawl · rotation", cue: "Hold den passive arm fremme og roter fra hoften", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "6-1-6 sideskift", category: "Svømning", target: "Crawl · balance", cue: "Seks benspark på siden, ét armtag og roligt sideskift", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sculling foran", category: "Svømning", target: "Vandføling · indgreb", cue: "Små bevægelser med albuerne højt og tryk på håndfladen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sculling midt", category: "Svømning", target: "Vandføling · trækfase", cue: "Hold overarmene stabile og arbejd med underarmene", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Benspark med plade", category: "Svømning", target: "Ben · udholdenhed", cue: "Små spark fra hoften og afslappede ankler", sets: "6", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sidekick", category: "Svømning", target: "Kropslinje · balance", cue: "Hold kroppen lang og det nederste øre tæt ved armen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Streamline-benspark på ryggen", category: "Svømning", target: "Streamline · ben", cue: "Klem armene om ørerne og hold hoften højt", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Delfinbenspark på ryggen", category: "Svømning", target: "Undervandsfase · core", cue: "Skab bølgen fra brystkassen og hold knæene samlet", sets: "6", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Brystsvømning med glidepause", category: "Svømning", target: "Bryst · timing", cue: "Afslut hvert spark i en lang, rolig streamline", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Brystbenspark med plade", category: "Svømning", target: "Bryst · benspark", cue: "Før hælene roligt op og accelerér fødderne bagud", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Brystarme med pull buoy", category: "Svømning", target: "Bryst · armtag", cue: "Hold trækket kompakt og før hænderne hurtigt frem", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmsrygcrawl", category: "Svømning", target: "Rygcrawl · rotation", cue: "Roter kroppen samlet og hold hovedet roligt", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Rygcrawl 6-kick switch", category: "Svømning", target: "Rygcrawl · balance", cue: "Seks benspark på siden og et kontrolleret armtag", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Butterfly 3-3-3", category: "Svømning", target: "Butterfly · rytme", cue: "Tre tag med hver arm og tre hele tag med samme rytme", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmsbutterfly", category: "Svømning", target: "Butterfly · timing", cue: "Bevar to benspark pr. cyklus og en lav fremføring", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl med pull buoy", category: "Svømning", target: "Crawl · armtag", cue: "Hold benene rolige og fasthold et tidligt indgreb", sets: "6", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Teknikcrawl med paddles", category: "Svømning", target: "Crawl · greb", cue: "Svøm kontrolleret og stop hvis grebet eller skulderen svigter", sets: "4", reps: "50 m", weight: "0", format: "distance" },
 ];

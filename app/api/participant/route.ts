@@ -1,4 +1,7 @@
 import { clearTesterId, getTesterId, normalizeTesterId, setTesterId } from "../../../lib/tester-session";
+import { sql } from "drizzle-orm";
+import { getDb } from "../../../db";
+import { testParticipants } from "../../../db/schema";
 
 export async function GET() {
   return Response.json({ testerId: await getTesterId() });
@@ -13,6 +16,14 @@ export async function POST(request: Request) {
   }
 
   await setTesterId(testerId);
+  try {
+    await getDb().insert(testParticipants).values({ testerId }).onConflictDoUpdate({
+      target: testParticipants.testerId,
+      set: { lastSeenAt: sql`CURRENT_TIMESTAMP` },
+    });
+  } catch {
+    // The cookie still lets a tester continue while a new database migration propagates.
+  }
   return Response.json({ testerId });
 }
 

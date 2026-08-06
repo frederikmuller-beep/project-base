@@ -1,33 +1,12 @@
-import { env } from "cloudflare:workers";
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { feedbackResponses, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { toCsv, type CsvValue } from "../../../../lib/csv";
+import { getPrivateAccessSecret, hasPrivateAccess } from "../../../../lib/private-access";
 
 type Dataset = "overview" | "training" | "feedback";
 
 const datasets = new Set<Dataset>(["overview", "training", "feedback"]);
-
-const exportKey = () =>
-  (env as unknown as Record<string, string | undefined>).BASE_EXPORT_KEY?.trim() ?? "";
-
-const secureEqual = (left: string, right: string) => {
-  const encoder = new TextEncoder();
-  const leftBytes = encoder.encode(left);
-  const rightBytes = encoder.encode(right);
-  const length = Math.max(leftBytes.length, rightBytes.length);
-  let difference = leftBytes.length ^ rightBytes.length;
-  for (let index = 0; index < length; index += 1) {
-    difference |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
-  }
-  return difference === 0;
-};
-
-const isAuthorized = (request: Request) => {
-  const expected = exportKey();
-  const authorization = request.headers.get("authorization") ?? "";
-  return expected.length >= 24 && secureEqual(authorization, `Bearer ${expected}`);
-};
 
 const safeAnswers = (value: string) => {
   try {
@@ -149,10 +128,10 @@ function overviewCsv(
 }
 
 export async function GET(request: Request) {
-  if (!exportKey()) {
+  if (!getPrivateAccessSecret("BASE_EXPORT_KEY")) {
     return Response.json({ error: "Eksporten er ikke konfigureret endnu." }, { status: 503 });
   }
-  if (!isAuthorized(request)) {
+  if (!hasPrivateAccess(request, "BASE_EXPORT_KEY")) {
     return Response.json({ error: "Forkert eksportnøgle." }, {
       status: 401,
       headers: { "cache-control": "no-store", "www-authenticate": "Bearer" },

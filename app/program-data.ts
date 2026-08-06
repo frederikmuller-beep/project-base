@@ -5,6 +5,7 @@ export type SessionExercise = {
   sets: number;
   plannedReps: string;
   defaultWeight: string;
+  tracking?: "load" | "distance";
 };
 
 export type ProgramDay = {
