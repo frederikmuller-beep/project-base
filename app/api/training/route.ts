@@ -15,6 +15,17 @@ type TrainingPayload = {
   rpe?: string;
 };
 
+const sessionSetLogs = async (sessionId: string) => getDb()
+  .select({
+    exerciseIndex: trainingSetLogs.exerciseIndex,
+    setIndex: trainingSetLogs.setIndex,
+    weight: trainingSetLogs.weight,
+    reps: trainingSetLogs.reps,
+    rpe: trainingSetLogs.rpe,
+  })
+  .from(trainingSetLogs)
+  .where(eq(trainingSetLogs.sessionId, sessionId));
+
 const cleanLogValue = (value: unknown, maxLength: number) => {
   if (typeof value !== "string") return null;
   const cleaned = value.trim();
@@ -98,11 +109,13 @@ export async function POST(request: Request) {
     if (!session) throw new Error("SESSION_NOT_CREATED");
 
     if (payload.action === "start") {
+      const sets = await sessionSetLogs(session.id);
       return Response.json({
         programId: session.programId,
         status: session.status,
         completedSets: session.completedSets,
         plannedSets: session.plannedSets,
+        sets,
       });
     }
 
@@ -149,7 +162,13 @@ export async function POST(request: Request) {
       completedAt: status === "completed" ? sql`CURRENT_TIMESTAMP` : null,
     }).where(eq(trainingSessions.id, session.id));
 
-    return Response.json({ programId: program.programId, completedSets, plannedSets, status });
+    return Response.json({
+      programId: program.programId,
+      completedSets,
+      plannedSets,
+      status,
+      savedSet: { exerciseIndex, setIndex, weight, reps, rpe },
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "TESTER_REQUIRED") {
       return Response.json({ error: "Tilslut dit tester-ID først." }, { status: 401 });

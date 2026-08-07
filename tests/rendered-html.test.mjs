@@ -82,11 +82,21 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
 
   const exerciseRows = exerciseData.split("\n").filter((line) => line.startsWith("  { name:"));
   const exerciseNames = exerciseRows.map((line) => line.match(/name: "([^"]+)"/)?.[1]);
-  assert.equal(exerciseRows.length, 132);
-  assert.equal(new Set(exerciseNames).size, 132);
+  assert.equal(exerciseRows.length, 138);
+  assert.equal(new Set(exerciseNames).size, 138);
   assert.ok(exerciseRows.every((line) => /sets: "[^"]+", reps: "[^"]+", weight: "[^"]+"/.test(line)));
   assert.equal(exerciseRows.filter((line) => /category: "Svømning"/.test(line)).length, 28);
+  assert.equal(exerciseRows.filter((line) => !/category: "Svømning"/.test(line)).length, 110);
   assert.equal(exerciseRows.filter((line) => /format: "distance"/.test(line)).length, 28);
+  assert.match(exerciseData, /name: "Bænkpres"/);
+  assert.match(exerciseData, /name: "Dødløft"/);
+  assert.match(exerciseData, /name: "Dips"/);
+  assert.match(page, /PAUSETIMER/);
+  assert.match(page, /setRestSecondsRemaining/);
+  assert.match(page, /Se og ret udførte sæt/);
+  assert.match(page, /Rediger dette sæt/);
+  assert.match(page, /openLoggedSet/);
+  assert.match(page, /Træn med rolig intensitet/);
   assert.match(page, /currentExercise\.tracking === "distance"/);
   assert.match(page, /svømmedistance/);
 

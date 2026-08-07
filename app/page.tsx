@@ -33,6 +33,17 @@ type SessionProgress = {
   plannedSets: number;
 };
 
+type TrainingSetLog = {
+  exerciseIndex: number;
+  setIndex: number;
+  weight: string;
+  reps: string;
+  rpe: string;
+};
+
+const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
+const formatTimer = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
 const positionFromCompletedSets = (plan: SessionExercise[], completedSets: number) => {
   let remaining = completedSets;
   for (let exerciseIndex = 0; exerciseIndex < plan.length; exerciseIndex += 1) {
@@ -76,6 +87,11 @@ export default function Home() {
   const [sessionProgramId, setSessionProgramId] = useState<string | null>(null);
   const [savingSet, setSavingSet] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [sessionLogs, setSessionLogs] = useState<Record<string, TrainingSetLog>>({});
+  const [editingSetKey, setEditingSetKey] = useState<string | null>(null);
+  const [resumePosition, setResumePosition] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
+  const [restSecondsRemaining, setRestSecondsRemaining] = useState(90);
+  const [restRunning, setRestRunning] = useState(false);
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
   const activeToday = activePlan[0];
@@ -144,6 +160,26 @@ export default function Home() {
     });
   }, [athleteExerciseLibrary, libraryCategory, librarySearch]);
   const selectedVideo = videoExercise ? exerciseVideos[videoExercise] : undefined;
+  const currentSetKey = setLogKey(exerciseIndex, setIndex);
+  const currentSetWasLogged = Boolean(sessionLogs[currentSetKey]);
+  const sortedSessionLogs = useMemo(
+    () => Object.values(sessionLogs).sort((a, b) => a.exerciseIndex - b.exerciseIndex || a.setIndex - b.setIndex),
+    [sessionLogs],
+  );
+
+  useEffect(() => {
+    if (!restRunning) return;
+    const timer = window.setInterval(() => {
+      setRestSecondsRemaining((seconds) => {
+        if (seconds <= 1) {
+          setRestRunning(false);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [restRunning]);
 
   const loadProgress = async () => {
     const response = await fetch("/api/training", { cache: "no-store" });
@@ -222,7 +258,8 @@ export default function Home() {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
     setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe("7"); setSessionPlan(activeToday.exercises);
-    setSessionProgramId(null); setSaveError("");
+    setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
+    setRestSecondsRemaining(90); setRestRunning(false);
   };
 
   const startSession = (
@@ -230,21 +267,29 @@ export default function Home() {
     plan: SessionExercise[] = activeToday.exercises,
     programId: string | null = null,
     alreadyCompleted = 0,
+    initialLogs: TrainingSetLog[] = [],
   ) => {
     if (plan.length === 0) return;
     const position = positionFromCompletedSets(plan, alreadyCompleted);
     const openingExercise = plan[position.exerciseIndex];
+    const logs = Object.fromEntries(initialLogs.map((log) => [setLogKey(log.exerciseIndex, log.setIndex), log]));
+    const openingLog = logs[setLogKey(position.exerciseIndex, position.setIndex)];
     setSessionPlan(plan);
     setSessionProgramId(programId);
     setAdjusted(useAdjustment);
     setExerciseIndex(position.exerciseIndex);
     setSetIndex(position.setIndex);
     setCompletedSets(alreadyCompleted);
-    setSetSaved(false);
+    setSessionLogs(logs);
+    setSetSaved(Boolean(openingLog));
+    setEditingSetKey(null);
+    setResumePosition(null);
     setSaveError("");
-    setWeight(useAdjustment && position.exerciseIndex === 0 && openingExercise.tracking !== "distance" ? "65" : openingExercise.defaultWeight);
-    setReps(openingExercise.plannedReps);
-    setRpe("7");
+    setWeight(openingLog?.weight ?? (useAdjustment && position.exerciseIndex === 0 && openingExercise.tracking !== "distance" ? "65" : openingExercise.defaultWeight));
+    setReps(openingLog?.reps ?? openingExercise.plannedReps);
+    setRpe(openingLog?.rpe ?? "7");
+    setRestSecondsRemaining(openingExercise.restSeconds ?? 90);
+    setRestRunning(false);
     setView("session");
   };
 
@@ -262,11 +307,10 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "start", programId: day.programId }),
       });
-      const data = (await response.json()) as SessionProgress & { error?: string };
+      const data = (await response.json()) as SessionProgress & { sets?: TrainingSetLog[]; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Passet kunne ikke åbnes.");
-      if (data.status === "completed") return;
       setProgress((current) => ({ ...current, [data.programId]: data }));
-      startSession(useAdjustment, day.exercises, day.programId, data.completedSets);
+      startSession(useAdjustment, day.exercises, day.programId, data.completedSets, data.sets ?? []);
     } catch (error) {
       setIdentityError(error instanceof Error ? error.message : "Passet kunne ikke åbnes.");
       setView("week");
@@ -278,7 +322,10 @@ export default function Home() {
     setSaveError("");
     if (!sessionProgramId) {
       setCompletedSets((count) => count + 1);
+      setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe } }));
       setSetSaved(true);
+      setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
+      setRestRunning(true);
       return;
     }
 
@@ -297,11 +344,16 @@ export default function Home() {
           rpe,
         }),
       });
-      const data = (await response.json()) as SessionProgress & { error?: string };
+      const data = (await response.json()) as SessionProgress & { savedSet?: TrainingSetLog; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Sættet kunne ikke gemmes.");
       setCompletedSets(data.completedSets);
       setProgress((current) => ({ ...current, [data.programId]: data }));
+      if (data.savedSet) setSessionLogs((logs) => ({ ...logs, [setLogKey(data.savedSet!.exerciseIndex, data.savedSet!.setIndex)]: data.savedSet! }));
       setSetSaved(true);
+      if (!currentSetWasLogged) {
+        setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
+        setRestRunning(true);
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Sættet kunne ikke gemmes.");
     } finally {
@@ -309,10 +361,43 @@ export default function Home() {
     }
   };
 
+  const openLoggedSet = (log: TrainingSetLog) => {
+    if (!editingSetKey) setResumePosition({ exerciseIndex, setIndex });
+    setEditingSetKey(setLogKey(log.exerciseIndex, log.setIndex));
+    setExerciseIndex(log.exerciseIndex);
+    setSetIndex(log.setIndex);
+    setWeight(log.weight);
+    setReps(log.reps);
+    setRpe(log.rpe);
+    setSetSaved(true);
+    setRestRunning(false);
+    setSaveError("");
+  };
+
+  const returnToTraining = () => {
+    if (!resumePosition) {
+      setEditingSetKey(null);
+      return;
+    }
+    const resumeExercise = sessionPlan[resumePosition.exerciseIndex];
+    const resumeLog = sessionLogs[setLogKey(resumePosition.exerciseIndex, resumePosition.setIndex)];
+    setExerciseIndex(resumePosition.exerciseIndex);
+    setSetIndex(resumePosition.setIndex);
+    setWeight(resumeLog?.weight ?? resumeExercise.defaultWeight);
+    setReps(resumeLog?.reps ?? resumeExercise.plannedReps);
+    setRpe(resumeLog?.rpe ?? "7");
+    setSetSaved(Boolean(resumeLog));
+    setEditingSetKey(null);
+    setResumePosition(null);
+    setSaveError("");
+  };
+
   const advanceSession = () => {
     if (setIndex + 1 < currentExercise.sets) {
       setSetIndex((index) => index + 1);
       setSetSaved(false);
+      setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
+      setRestRunning(false);
       return;
     }
 
@@ -323,6 +408,8 @@ export default function Home() {
       setWeight(nextExercise.defaultWeight);
       setReps(nextExercise.plannedReps);
       setRpe("7");
+      setRestSecondsRemaining(nextExercise.restSeconds ?? 90);
+      setRestRunning(false);
       return;
     }
 
@@ -515,7 +602,12 @@ export default function Home() {
                     {dayProgress ? `Fortsæt pas · ${dayProgress.completedSets}/${daySets} sæt →` : "Start dette pas →"}
                   </button>
                 )}
-                {dayProgress?.status === "completed" && <div className="program-complete">✓ Pas gennemført og gemt</div>}
+                {dayProgress?.status === "completed" && (
+                  <div className="program-complete">
+                    <span>✓ Pas gennemført og gemt</span>
+                    <button onClick={() => startPlannedSession(day)}>Se og ret udførte sæt</button>
+                  </div>
+                )}
               </article>
             );})}
           </div>
@@ -722,7 +814,21 @@ export default function Home() {
             <span>{exerciseVideos[currentExercise.name] ? "▶" : "⌕"}</span>
             <span><strong>{exerciseVideos[currentExercise.name] ? "Se teknikvideo" : "Find teknikvideo"}</strong><small>Åbnes uden at nulstille træningen</small></span>
           </button>
-          {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Svøm med rolig intensitet</strong><small>Readiness · gul · behold teknisk kvalitet</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
+          <article className={`rest-timer ${restSecondsRemaining === 0 ? "finished" : ""}`}>
+            <div>
+              <span>PAUSETIMER</span>
+              <small>{currentExercise.restSeconds ?? 90} sek anbefalet</small>
+            </div>
+            <strong aria-live="polite">{formatTimer(restSecondsRemaining)}</strong>
+            <div className="rest-timer-actions">
+              <button onClick={() => setRestRunning((running) => !running)} disabled={restSecondsRemaining === 0}>
+                {restRunning ? "Pause" : "Start"}
+              </button>
+              <button onClick={() => { setRestSecondsRemaining(currentExercise.restSeconds ?? 90); setRestRunning(false); }}>Nulstil</button>
+              <button onClick={() => setRestSecondsRemaining((seconds) => seconds + 30)}>+30 sek</button>
+            </div>
+          </article>
+          {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Træn med rolig intensitet</strong><small>Readiness · gul · behold teknisk kvalitet</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
           <div className="set-progress" style={{ gridTemplateColumns: `repeat(${currentExercise.sets}, 1fr)` }}>
             {Array.from({ length: currentExercise.sets }, (_, index) => (
               <span key={index} className={index < setIndex || (index === setIndex && setSaved) ? "done" : index === setIndex ? "current" : ""}>{index + 1}</span>
@@ -736,12 +842,15 @@ export default function Home() {
               <label>RPE<input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} /></label>
             </div>
             {!setSaved ? (
-              <button className="primary" onClick={saveCurrentSet} disabled={savingSet}>{savingSet ? "Gemmer…" : "Gem sæt"}</button>
+              <button className="primary" onClick={saveCurrentSet} disabled={savingSet}>{savingSet ? "Gemmer…" : currentSetWasLogged ? "Gem ændringer" : "Gem sæt"}</button>
             ) : (
               <>
                 <div className="saved">✓ Sæt gemt · {currentExercise.tracking === "distance" ? reps : `${weight} kg × ${reps}`} @ RPE {rpe}</div>
-                <button className="primary next-set-button" onClick={advanceSession}>
-                  {nextExercise === undefined && setIndex + 1 === currentExercise.sets
+                <button className="edit-set-button" onClick={() => setSetSaved(false)}>Rediger dette sæt</button>
+                <button className="primary next-set-button" onClick={editingSetKey ? returnToTraining : advanceSession}>
+                  {editingSetKey
+                    ? "Tilbage til træningen"
+                    : nextExercise === undefined && setIndex + 1 === currentExercise.sets
                     ? "Afslut træning"
                     : setIndex + 1 === currentExercise.sets
                       ? `Næste øvelse · ${nextExercise?.name}`
@@ -751,6 +860,23 @@ export default function Home() {
             )}
             {saveError && <div className="set-save-error">{saveError}</div>}
           </article>
+          {sortedSessionLogs.length > 0 && (
+            <article className="completed-set-list">
+              <div><strong>Udførte sæt</strong><span>Tryk på et sæt for at rette det</span></div>
+              <div className="completed-set-buttons">
+                {sortedSessionLogs.map((log) => (
+                  <button
+                    key={setLogKey(log.exerciseIndex, log.setIndex)}
+                    className={setLogKey(log.exerciseIndex, log.setIndex) === currentSetKey ? "active" : ""}
+                    onClick={() => openLoggedSet(log)}
+                  >
+                    <span>{sessionPlan[log.exerciseIndex]?.name ?? `Øvelse ${log.exerciseIndex + 1}`} · sæt {log.setIndex + 1}</span>
+                    <strong>{sessionPlan[log.exerciseIndex]?.tracking === "distance" ? log.reps : `${log.weight} kg × ${log.reps}`} · RPE {log.rpe}</strong>
+                  </button>
+                ))}
+              </div>
+            </article>
+          )}
           <div className="next-exercise">
             <span>{nextExercise ? "NÆSTE ØVELSE" : "SIDSTE ØVELSE"}</span>
             <strong>{nextExercise ? `${nextExercise.name} · ${nextExercise.detail}` : `${totalPlannedSets - completedSets} sæt tilbage`}</strong>
