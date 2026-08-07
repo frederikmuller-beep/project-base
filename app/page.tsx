@@ -475,6 +475,12 @@ export default function Home() {
           <h1>God træning.</h1>
           <p className="lede">Dit program er tilpasset {trainingProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
 
+          <a className="coach-entry-button" href="/coach">
+            <span>TRÆNERADGANG</span>
+            <strong>Åbn træneroverblik</strong>
+            <b>→</b>
+          </a>
+
           <article className="hero-card">
             <div className="hero-meta"><span>{activeProfile === "weightlifting" ? "VÆGTLØFTNING" : `STYRKETRÆNING · ${trainingProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}`}</span><span>{activeToday.duration} MIN</span></div>
             <h2>{activeToday.title}</h2>

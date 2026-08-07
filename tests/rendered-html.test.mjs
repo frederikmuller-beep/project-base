@@ -96,6 +96,8 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(exerciseData, /name: "Isometric catch hold"/);
   assert.match(page, /Se indeks/);
   assert.match(page, /swimStrengthCount/);
+  assert.match(page, /href="\/coach"/);
+  assert.match(page, /Åbn træneroverblik/);
   assert.match(page, /PAUSETIMER/);
   assert.match(page, /setRestSecondsRemaining/);
   assert.match(page, /Se og ret udførte sæt/);
