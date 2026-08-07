@@ -151,6 +151,10 @@ export default function Home() {
     () => ["Alle", ...Array.from(new Set(athleteExerciseLibrary.map((exercise) => exercise.category)))],
     [athleteExerciseLibrary],
   );
+  const swimStrengthCount = useMemo(
+    () => athleteExerciseLibrary.filter((exercise) => exercise.category === "Svømmestyrke").length,
+    [athleteExerciseLibrary],
+  );
   const filteredExercises = useMemo(() => {
     const query = librarySearch.trim().toLocaleLowerCase("da-DK");
     return athleteExerciseLibrary.filter((exercise) => {
@@ -633,6 +637,11 @@ export default function Home() {
             <div><strong>{libraryCategories.length - 1}</strong><span>kategorier</span></div>
             <div><strong>{Object.keys(exerciseVideos).length}</strong><span>testvideoer</span></div>
           </div>
+          <button className="swim-strength-index" onClick={() => setLibraryCategory("Svømmestyrke")}>
+            <span>SVØMMESTYRKE</span>
+            <div><strong>{swimStrengthCount} øvelser på land</strong><small>Skuldre, træk, streamline, core og eksplosivitet</small></div>
+            <b>Se indeks →</b>
+          </button>
           <div className="video-library-note"><span>▶</span><p><strong>Videoafprøvning</strong> Centrale øvelser har en integreret teknikvideo. Resten åbner en målrettet YouTube-søgning.</p></div>
           <div className="library-tools">
             <label className="library-search">
