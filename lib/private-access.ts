@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-export type PrivateAccessKey = "BASE_EXPORT_KEY" | "BASE_COACH_KEY";
+export type PrivateAccessKey = "BASE_EXPORT_KEY" | "BASE_COACH_KEY" | "BASE_OWNER_KEY";
 
 export const getPrivateAccessSecret = (key: PrivateAccessKey) =>
   (env as unknown as Record<string, string | undefined>)[key]?.trim() ?? "";

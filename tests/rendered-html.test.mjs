@@ -261,3 +261,31 @@ test("persists and enforces each swimmer's selected distance profile", async () 
   assert.match(dashboard, /athlete\.trainingProfileLabel/);
   assert.match(migration, /ADD `training_profile` text/);
 });
+
+test("protects the live owner dashboard and reconciles the core test metrics", async () => {
+  const [route, dashboard, page, privateAccess] = await Promise.all([
+    readFile(new URL("../app/api/owner/dashboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/owner/owner-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/owner/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/private-access.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(privateAccess, /BASE_OWNER_KEY/);
+  assert.match(route, /hasPrivateAccess\(request, "BASE_OWNER_KEY"\)/);
+  assert.match(route, /testParticipants/);
+  assert.match(route, /trainingSessions/);
+  assert.match(route, /trainingSetLogs/);
+  assert.match(route, /feedbackResponses/);
+  assert.match(route, /coachAthleteAssignments/);
+  assert.match(route, /completionRate/);
+  assert.match(route, /feedbackCoverage/);
+  assert.match(route, /length: 14/);
+  assert.match(route, /private, no-store/);
+  assert.match(dashboard, /BASE-overblik/);
+  assert.match(dashboard, /Seneste 14 dage/);
+  assert.match(dashboard, /FEEDBACKKVALITET/);
+  assert.match(dashboard, /HANDLINGSLISTE/);
+  assert.match(dashboard, /60_000/);
+  assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
+  assert.match(page, /robots: \{ index: false, follow: false \}/);
+});
