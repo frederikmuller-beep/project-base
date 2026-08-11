@@ -27,6 +27,24 @@ export const coachAthleteAssignments = sqliteTable("coach_athlete_assignments", 
   index("idx_coach_athlete_assignments_coach").on(table.coachId),
 ]);
 
+export const coachTrainingPlans = sqliteTable("coach_training_plans", {
+  id: text("id").primaryKey(),
+  coachId: text("coach_id").notNull(),
+  testerId: text("tester_id").notNull(),
+  title: text("title").notNull(),
+  focus: text("focus").notNull(),
+  scheduledDate: text("scheduled_date").notNull(),
+  trainingType: text("training_type", { enum: ["strength", "swim"] }).notNull(),
+  duration: integer("duration").notNull(),
+  exercises: text("exercises").notNull(),
+  status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_coach_training_plans_coach_tester").on(table.coachId, table.testerId),
+  index("idx_coach_training_plans_tester_status_date").on(table.testerId, table.status, table.scheduledDate),
+]);
+
 export const trainingSessions = sqliteTable("training_sessions", {
   id: text("id").primaryKey(),
   testerId: text("tester_id").notNull(),

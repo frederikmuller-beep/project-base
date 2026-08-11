@@ -83,6 +83,7 @@ export default function Home() {
   const [identityLoading, setIdentityLoading] = useState(true);
   const [identityError, setIdentityError] = useState("");
   const [progress, setProgress] = useState<Record<string, SessionProgress>>({});
+  const [coachPlans, setCoachPlans] = useState<ProgramDay[]>([]);
   const [healthSummary, setHealthSummary] = useState<HealthSummary | null>(null);
   const [sessionProgramId, setSessionProgramId] = useState<string | null>(null);
   const [savingSet, setSavingSet] = useState(false);
@@ -199,6 +200,13 @@ export default function Home() {
     setHealthSummary(data.summary ?? null);
   };
 
+  const loadCoachPlans = async () => {
+    const response = await fetch("/api/training/plans", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = (await response.json()) as { plans?: ProgramDay[] };
+    setCoachPlans(data.plans ?? []);
+  };
+
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
@@ -208,7 +216,7 @@ export default function Home() {
         setTesterId(data.testerId);
         setTrainingProfile(data.trainingProfile);
         if (data.trainingProfile) setProfileDraft(data.trainingProfile);
-        if (data.testerId) await Promise.all([loadProgress(), loadHealthSummary()]);
+        if (data.testerId) await Promise.all([loadProgress(), loadHealthSummary(), loadCoachPlans()]);
       })
       .catch(() => undefined)
       .finally(() => { if (active) setIdentityLoading(false); });
@@ -229,7 +237,7 @@ export default function Home() {
       setTesterId(data.testerId);
       setTrainingProfile(data.trainingProfile ?? profileDraft);
       setTesterInput("");
-      await Promise.all([loadProgress(), loadHealthSummary()]);
+      await Promise.all([loadProgress(), loadHealthSummary(), loadCoachPlans()]);
     } catch (error) {
       setIdentityError(error instanceof Error ? error.message : "Tester-ID kunne ikke gemmes.");
     } finally {
@@ -242,6 +250,7 @@ export default function Home() {
     setTesterId(null);
     setTrainingProfile(null);
     setProgress({});
+    setCoachPlans([]);
     setHealthSummary(null);
     setIdentityError("");
   };
@@ -580,6 +589,20 @@ export default function Home() {
             <div><strong>{weekTotals.minutes} min</strong><span>planlagt styrketid</span></div>
             <div><strong>{trainingProfileLabel(activeProfile)}</strong><span>profil</span></div>
           </article>
+          {coachPlans.length > 0 && (
+            <section className="coach-assigned-plans">
+              <div><span>FRA DIN TRÆNER</span><strong>{coachPlans.length} tildelte pas</strong><small>Disse pas er sammensat specifikt til din testprofil.</small></div>
+              {coachPlans.map((day) => {
+                const dayProgress = day.programId ? progress[day.programId] : undefined;
+                return (
+                  <article key={day.programId}>
+                    <div><span>{day.intensity === "Vandpas" ? "VANDPAS" : "STYRKE"} · {day.day} {day.date}</span><strong>{day.title}</strong><small>{day.focus} · {day.exercises.length} øvelser</small></div>
+                    <button onClick={() => startPlannedSession(day)}>{dayProgress ? dayProgress.status === "completed" ? "Se sæt" : "Fortsæt" : "Åbn pas"} →</button>
+                  </article>
+                );
+              })}
+            </section>
+          )}
           <div className="week-list">
             {activePlan.map((day) => {
               const dayProgress = day.programId ? progress[day.programId] : undefined;

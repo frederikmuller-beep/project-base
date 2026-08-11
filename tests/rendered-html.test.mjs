@@ -211,14 +211,18 @@ test("protects internal CSV exports and exposes only the intended test datasets"
 });
 
 test("protects the coach view and limits it to pseudonymous training data", async () => {
-  const [schema, participantRoute, coachRoute, dashboard, coachPage, migration, assignmentMigration] = await Promise.all([
+  const [schema, participantRoute, coachRoute, planRoute, athletePlansRoute, trainingRoute, dashboard, coachPage, migration, assignmentMigration, planMigration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/coach/athletes/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/coach/plans/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/training/plans/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/training/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/coach/coach-dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/coach/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0003_ambiguous_pretty_boy.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0005_strong_mulholland_black.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0006_flawless_killraven.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /testParticipants/);
@@ -230,16 +234,33 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   assert.match(coachRoute, /inArray\(trainingSessions\.testerId, participantIds\)/);
   assert.match(coachRoute, /export async function POST/);
   assert.match(coachRoute, /export async function DELETE/);
+  assert.match(coachRoute, /availableAthletes/);
   assert.doesNotMatch(coachRoute, /feedbackResponses|dailyHealthMetrics|healthConnections/);
   assert.match(dashboard, /\/api\/coach\/athletes/);
   assert.match(dashboard, /Feedback, readiness og helbredsdata deles ikke/);
-  assert.match(dashboard, /Tildel en atlet/);
+  assert.match(dashboard, /Tildel uden at kende tester-ID’et/);
   assert.match(dashboard, /Fjern tildeling/);
+  assert.match(dashboard, /AKTIVE TESTPROFILER/);
+  assert.match(dashboard, /SKJULTE VANDPAS/);
+  assert.match(dashboard, /exerciseLibrary/);
+  assert.match(dashboard, /Indlæs vandpas/);
+  assert.match(dashboard, /Tildel passet til atleten/);
   assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
+  assert.match(schema, /coachTrainingPlans/);
+  assert.match(planRoute, /BASE_COACH_KEY/);
+  assert.match(planRoute, /exerciseNames\.has/);
+  assert.match(planRoute, /coachAthleteAssignments/);
+  assert.match(planRoute, /status: "archived"/);
+  assert.match(athletePlansRoute, /getTesterId/);
+  assert.match(athletePlansRoute, /coachPlanToProgramDay/);
+  assert.match(trainingRoute, /coachTrainingPlans/);
+  assert.match(trainingRoute, /coachPlanToProgramDay/);
   assert.match(coachPage, /robots: \{ index: false, follow: false \}/);
   assert.match(migration, /CREATE TABLE `test_participants`/);
   assert.match(assignmentMigration, /CREATE TABLE `coach_athlete_assignments`/);
   assert.match(assignmentMigration, /CREATE UNIQUE INDEX `idx_coach_athlete_assignments_coach_tester`/);
+  assert.match(planMigration, /CREATE TABLE `coach_training_plans`/);
+  assert.match(planMigration, /idx_coach_training_plans_tester_status_date/);
 });
 
 test("persists and enforces each swimmer's selected distance profile", async () => {
