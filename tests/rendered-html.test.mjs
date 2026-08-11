@@ -65,12 +65,16 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(page, /trainingProfileOptions/);
   assert.match(page, /activeProfile === "weightlifting"/);
   assert.match(swimProgramData, /id: "weightlifting", label: "Vægtløftning"/);
+  assert.match(swimProgramData, /id: "recreational", label: "Motionist"/);
   assert.match(swimProgramData, /getTrainingPlan/);
   assert.match(swimProgramData, /getSwimmerStrengthPlan/);
   assert.match(strengthProgramData, /long_distance: makeStrengthPlan/);
   assert.match(strengthProgramData, /middle_distance: makeStrengthPlan/);
   assert.match(strengthProgramData, /sprint: makeStrengthPlan/);
-  assert.equal((strengthProgramData.match(/const .*Strength: StrengthSession\[]/g) ?? []).length, 3);
+  assert.match(strengthProgramData, /recreational: makeStrengthPlan/);
+  assert.equal((strengthProgramData.match(/const .*Strength: StrengthSession\[]/g) ?? []).length, 4);
+  const recreationalSessions = strengthProgramData.slice(strengthProgramData.indexOf("const recreationalStrength"), strengthProgramData.indexOf("export const swimmerStrengthPlans"));
+  assert.equal((recreationalSessions.match(/\{ title:/g) ?? []).length, 6);
   assert.match(page, /exercise\.category !== "Svømning"/);
   assert.match(page, /Udforsk styrkebiblioteket/);
 
@@ -249,7 +253,7 @@ test("persists and enforces each swimmer's selected distance profile", async () 
   ]);
 
   assert.match(schema, /trainingProfile/);
-  assert.match(schema, /"weightlifting", "long_distance", "middle_distance", "sprint"/);
+  assert.match(schema, /"weightlifting", "long_distance", "middle_distance", "sprint", "recreational"/);
   assert.match(participantRoute, /isTrainingProfile/);
   assert.match(participantRoute, /inferredProfile = sessions\.some/);
   assert.match(participantRoute, /getProgram\(session\.programId\)/);

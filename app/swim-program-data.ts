@@ -2,7 +2,8 @@ import { twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-da
 import { getSwimmerStrengthPlan } from "./strength-program-data";
 
 export type SwimProfile = "long_distance" | "middle_distance" | "sprint";
-export type TrainingProfile = "weightlifting" | SwimProfile;
+export type StrengthProfile = SwimProfile | "recreational";
+export type TrainingProfile = "weightlifting" | StrengthProfile;
 
 export const swimProfileOptions: Array<{ id: SwimProfile; label: string; short: string; description: string }> = [
   { id: "long_distance", label: "Langdistance", short: "LANG", description: "Længere aerobe serier, stabil fart og effektiv teknik." },
@@ -15,6 +16,7 @@ export const trainingProfileOptions: Array<{ id: TrainingProfile; label: string;
   { id: "long_distance", label: "Langdistance", short: "LANG", description: "Styrkeudholdenhed, holdning og stabilitet til længere svømmearbejde." },
   { id: "middle_distance", label: "Mellemdistance", short: "MELLEM", description: "Helkropsstyrke og power til gentagen fart." },
   { id: "sprint", label: "Sprint", short: "SPRINT", description: "Maksimal styrke og eksplosiv power med lange pauser." },
+  { id: "recreational", label: "Motionist", short: "MOTION", description: "Enkel helkropsstyrke til sundhed, robusthed og en stabil træningsrytme." },
 ];
 
 export const trainingProfileLabel = (profile: TrainingProfile | null | undefined) =>

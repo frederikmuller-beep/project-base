@@ -7,6 +7,7 @@ const profileLabels: Record<string, string> = {
   long_distance: "Langdistance",
   middle_distance: "Mellemdistance",
   sprint: "Sprint",
+  recreational: "Motionist",
   unknown: "Ikke valgt",
 };
 

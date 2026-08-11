@@ -1,5 +1,5 @@
 import type { ProgramDay, SessionExercise } from "./program-data";
-import type { SwimProfile } from "./swim-program-data";
+import type { StrengthProfile } from "./swim-program-data";
 
 const strength = (name: string, sets: number, reps: string, weight: string, restSeconds: number, focus: string): SessionExercise => ({
   name,
@@ -32,11 +32,11 @@ const calendar = [
 
 const trainingDays = new Set([0, 2, 4, 7, 9, 11]);
 
-const makeStrengthPlan = (profile: SwimProfile, sessions: StrengthSession[]): ProgramDay[] => {
+const makeStrengthPlan = (profile: StrengthProfile, sessions: StrengthSession[]): ProgramDay[] => {
   let sessionIndex = 0;
   return calendar.map((date, dayIndex) => {
     if (!trainingDays.has(dayIndex)) {
-      return { ...date, programId: null, status: "rest", title: "Ingen styrketræning", focus: "Svømmetræning og restitution efter trænerens plan", duration: 0, intensity: "Hvile", exercises: [] };
+      return { ...date, programId: null, status: "rest", title: "Ingen styrketræning", focus: profile === "recreational" ? "Restitution, gåtur eller let bevægelse efter behov" : "Svømmetræning og restitution efter trænerens plan", duration: 0, intensity: "Hvile", exercises: [] };
     }
     const session = sessions[sessionIndex];
     sessionIndex += 1;
@@ -71,12 +71,21 @@ const sprintStrength: StrengthSession[] = [
   { title: "Power-test", focus: "Sammenlign fart og RPE med første uge", duration: 50, intensity: "Power", exercises: [strength("Box jump", 5, "3", "0", 120, "Samme højde hver gang"), strength("Medicine ball slam", 5, "4", "8", 75, "Maksimal fart"), strength("Push press", 4, "3", "45", 120, "Hurtig stang"), strength("Pull-up", 3, "4", "0", 105, "Ren teknik"), strength("Pallof press", 3, "8", "16", 45, "Stabil torso")] },
 ];
 
-export const swimmerStrengthPlans: Record<SwimProfile, ProgramDay[]> = {
+const recreationalStrength: StrengthSession[] = [
+  { title: "Helkrop A", focus: "Lær bevægelserne og afslut med overskud", duration: 45, intensity: "Let/moderat", exercises: [strength("Goblet squat", 3, "8", "16", 75, "Rolig ned, stabil op"), strength("Seated cable row", 3, "10", "30", 60, "Saml skulderbladene"), strength("Push-up", 3, "8", "0", 60, "Fast kropslinje"), strength("Romanian deadlift", 3, "8", "40", 75, "Skub hoften tilbage"), strength("Dead bug", 3, "8", "0", 30, "Rolig vejrtrækning")] },
+  { title: "Helkrop B", focus: "Ben, pres og træk med kontrolleret teknik", duration: 45, intensity: "Moderat", exercises: [strength("Split squat", 3, "8", "12", 60, "Stabilt knæ"), strength("Lat pulldown", 3, "10", "35", 60, "Træk albuerne ned"), strength("Incline dumbbell bench press", 3, "8", "20", 75, "Rolig sænkning"), strength("Glute bridge", 3, "12", "0", 45, "Spænd balderne"), strength("Side plank", 3, "20 sek", "0", 30, "Lang kropslinje")] },
+  { title: "Helkrop C", focus: "Gentagelig styrke og god bevægelseskvalitet", duration: 50, intensity: "Moderat", exercises: [strength("Leg press", 3, "10", "60", 75, "Kontrolleret dybde"), strength("Seated cable row", 3, "10", "32.5", 60, "Stabil overkrop"), strength("Half-kneeling landmine press", 3, "8", "15", 60, "Ribben ned"), strength("Romanian deadlift", 3, "8", "42.5", 75, "Lang ryg"), strength("Farmer's walk", 3, "30 m", "24", 45, "Gå højt og roligt")] },
+  { title: "Helkrop A · progression", focus: "Lidt mere arbejde med samme tekniske ro", duration: 45, intensity: "Moderat", exercises: [strength("Goblet squat", 3, "10", "16", 75, "Samme dybde hver gang"), strength("Seated cable row", 3, "10", "32.5", 60, "Saml skulderbladene"), strength("Push-up", 3, "10", "0", 60, "Stop før teknikken falder"), strength("Romanian deadlift", 3, "8", "42.5", 75, "Kontrolleret bagkæde"), strength("Dead bug", 3, "10", "0", 30, "Hold lænden rolig")] },
+  { title: "Helkrop B · progression", focus: "Byg sikker styrke uden at træne til udmattelse", duration: 45, intensity: "Moderat", exercises: [strength("Split squat", 3, "8", "14", 60, "Tryk gennem hele foden"), strength("Lat pulldown", 3, "10", "37.5", 60, "Rolig retur"), strength("Incline dumbbell bench press", 3, "8", "22", 75, "Stabile skuldre"), strength("Glute bridge", 3, "15", "0", 45, "Fuld hofte"), strength("Side plank", 3, "25 sek", "0", 30, "Rolig vejrtrækning")] },
+  { title: "Rolig afslutning", focus: "Sammenlign teknik, energi og RPE med første uge", duration: 45, intensity: "Let/moderat", exercises: [strength("Leg press", 3, "10", "65", 75, "Jævn bevægelse"), strength("Seated cable row", 3, "10", "35", 60, "Kontrolleret træk"), strength("Half-kneeling landmine press", 3, "8", "17.5", 60, "Fast core"), strength("Romanian deadlift", 3, "8", "45", 75, "Stop med overskud"), strength("Farmer's walk", 3, "30 m", "26", 45, "Stabil holdning")] },
+];
+
+export const swimmerStrengthPlans: Record<StrengthProfile, ProgramDay[]> = {
   long_distance: makeStrengthPlan("long_distance", longDistanceStrength),
   middle_distance: makeStrengthPlan("middle_distance", middleDistanceStrength),
   sprint: makeStrengthPlan("sprint", sprintStrength),
+  recreational: makeStrengthPlan("recreational", recreationalStrength),
 };
 
-export const getSwimmerStrengthPlan = (profile: SwimProfile) => swimmerStrengthPlans[profile];
+export const getSwimmerStrengthPlan = (profile: StrengthProfile) => swimmerStrengthPlans[profile];
 export const getStrengthProgram = (programId: string) => Object.values(swimmerStrengthPlans).flat().find((day) => day.programId === programId);
-

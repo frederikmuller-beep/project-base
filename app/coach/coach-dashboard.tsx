@@ -16,7 +16,7 @@ type AthleteSession = {
 
 type Athlete = {
   testerId: string;
-  trainingProfile: "weightlifting" | "long_distance" | "middle_distance" | "sprint" | null;
+  trainingProfile: "weightlifting" | "long_distance" | "middle_distance" | "sprint" | "recreational" | null;
   trainingProfileLabel: string;
   lastActiveAt: string | null;
   sessionsStarted: number;
