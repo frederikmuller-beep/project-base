@@ -8,6 +8,8 @@ export type CoachPlanExercise = {
   defaultWeight: string;
   tracking: "load" | "distance";
   restSeconds: number;
+  effortMetric?: "rir" | "heart_rate_zone";
+  effortTarget?: string;
 };
 
 export type CoachPlanRecord = {
@@ -57,6 +59,8 @@ export const coachPlanToProgramDay = (plan: CoachPlanRecord): ProgramDay => {
     distanceMeters: exercises.reduce((sum, exercise) => exercise.tracking === "distance" ? sum + exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0) : sum, 0),
     exercises: exercises.map((exercise): SessionExercise => ({
       ...exercise,
+      effortMetric: plan.trainingType === "swim" ? "heart_rate_zone" : "rir",
+      effortTarget: plan.trainingType === "swim" ? "Pulszone efter trænerens plan" : "RIR efter trænerens plan",
       detail: exercise.tracking === "distance"
         ? `${exercise.sets} × ${exercise.plannedReps} · ${exercise.restSeconds} sek pause`
         : `${exercise.sets} × ${exercise.plannedReps} · ${exercise.defaultWeight} kg · ${exercise.restSeconds} sek pause`,

@@ -39,10 +39,15 @@ type TrainingSetLog = {
   weight: string;
   reps: string;
   rpe: string;
+  effortMetric?: "rpe" | "rir" | "heart_rate_zone";
 };
 
 const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
 const formatTimer = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+const exerciseEffortMetric = (exercise: SessionExercise) => exercise.effortMetric ?? (exercise.tracking === "distance" ? "heart_rate_zone" : "rir");
+const defaultEffortValue = (exercise: SessionExercise) => exerciseEffortMetric(exercise) === "heart_rate_zone" ? "2" : exercise.effortTarget?.startsWith("4") ? "5" : "3";
+const effortLabel = (metric: "rpe" | "rir" | "heart_rate_zone") => metric === "heart_rate_zone" ? "PULSZONE" : metric === "rir" ? "RIR" : "RPE";
+const effortSummary = (metric: "rpe" | "rir" | "heart_rate_zone", value: string) => metric === "heart_rate_zone" ? `pulszone ${value}` : metric === "rir" ? `${value} RIR` : `RPE ${value}`;
 
 const positionFromCompletedSets = (plan: SessionExercise[], completedSets: number) => {
   let remaining = completedSets;
@@ -66,7 +71,7 @@ export default function Home() {
   const [setSaved, setSetSaved] = useState(false);
   const [weight, setWeight] = useState("70");
   const [reps, setReps] = useState("2");
-  const [rpe, setRpe] = useState("7");
+  const [rpe, setRpe] = useState("3");
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
   const [sessionPlan, setSessionPlan] = useState<SessionExercise[]>(defaultPlan[0].exercises);
   const [extraDraft, setExtraDraft] = useState<ExtraDayExercise[]>([]);
@@ -106,6 +111,7 @@ export default function Home() {
     { sessions: 0, minutes: 0, sets: 0, distance: 0 },
   ), [activePlan]);
   const currentExercise = sessionPlan[exerciseIndex];
+  const currentEffortMetric = currentExercise ? exerciseEffortMetric(currentExercise) : "rir";
   const nextExercise = sessionPlan[exerciseIndex + 1];
   const totalPlannedSets = useMemo(
     () => sessionPlan.reduce((total, exercise) => total + exercise.sets, 0),
@@ -270,7 +276,7 @@ export default function Home() {
   const reset = () => {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
-    setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe("7"); setSessionPlan(activeToday.exercises);
+    setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe(activeToday.exercises[0] ? defaultEffortValue(activeToday.exercises[0]) : "3"); setSessionPlan(activeToday.exercises);
     setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
     setRestSecondsRemaining(90); setRestRunning(false);
   };
@@ -300,7 +306,7 @@ export default function Home() {
     setSaveError("");
     setWeight(openingLog?.weight ?? (useAdjustment && position.exerciseIndex === 0 && openingExercise.tracking !== "distance" ? "65" : openingExercise.defaultWeight));
     setReps(openingLog?.reps ?? openingExercise.plannedReps);
-    setRpe(openingLog?.rpe ?? "7");
+    setRpe(openingLog?.rpe ?? defaultEffortValue(openingExercise));
     setRestSecondsRemaining(openingExercise.restSeconds ?? 90);
     setRestRunning(false);
     setView("session");
@@ -335,7 +341,7 @@ export default function Home() {
     setSaveError("");
     if (!sessionProgramId) {
       setCompletedSets((count) => count + 1);
-      setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe } }));
+      setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric: currentEffortMetric } }));
       setSetSaved(true);
       setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
       setRestRunning(true);
@@ -355,6 +361,7 @@ export default function Home() {
           weight,
           reps,
           rpe,
+          effortMetric: currentEffortMetric,
         }),
       });
       const data = (await response.json()) as SessionProgress & { savedSet?: TrainingSetLog; error?: string };
@@ -398,7 +405,7 @@ export default function Home() {
     setSetIndex(resumePosition.setIndex);
     setWeight(resumeLog?.weight ?? resumeExercise.defaultWeight);
     setReps(resumeLog?.reps ?? resumeExercise.plannedReps);
-    setRpe(resumeLog?.rpe ?? "7");
+    setRpe(resumeLog?.rpe ?? defaultEffortValue(resumeExercise));
     setSetSaved(Boolean(resumeLog));
     setEditingSetKey(null);
     setResumePosition(null);
@@ -420,7 +427,7 @@ export default function Home() {
       setSetSaved(false);
       setWeight(nextExercise.defaultWeight);
       setReps(nextExercise.plannedReps);
-      setRpe("7");
+      setRpe(defaultEffortValue(nextExercise));
       setRestSecondsRemaining(nextExercise.restSeconds ?? 90);
       setRestRunning(false);
       return;
@@ -624,7 +631,7 @@ export default function Home() {
                     {day.exercises.map((exercise) => {
                       return (
                         <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
-                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
+                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}{exercise.effortTarget ? ` · ${exercise.effortTarget}` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
                         </button>
                       );
                     })}
@@ -874,16 +881,17 @@ export default function Home() {
           </div>
           <article className="log-card">
             <div className="set-heading"><span>SÆT {setIndex + 1} AF {currentExercise.sets}</span><strong>{currentExercise.plannedReps}{currentExercise.tracking === "distance" ? currentExercise.restSeconds ? ` · ${currentExercise.restSeconds} sek pause` : "" : " reps"}</strong></div>
+            <div className="effort-guidance"><span>{currentEffortMetric === "heart_rate_zone" ? "CARDIO" : "STYRKE"}</span><strong>{currentExercise.effortTarget ?? (currentEffortMetric === "heart_rate_zone" ? "Pulszone efter passets mål" : "RIR efter passets mål")}</strong><small>{currentEffortMetric === "heart_rate_zone" ? "Uden pulsur: brug samtaletempo og RPE 2–4 som fallback." : "RIR er antal gode gentagelser, du vurderer var tilbage."}</small></div>
             <div className={`inputs ${currentExercise.tracking === "distance" ? "distance-inputs" : ""}`}>
               {currentExercise.tracking !== "distance" && <label>VÆGT<input inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} disabled={setSaved} /><span>kg</span></label>}
               <label>{currentExercise.tracking === "distance" ? "DISTANCE" : "REPS"}<input inputMode="text" value={reps} onChange={e => setReps(e.target.value)} disabled={setSaved} /></label>
-              <label>RPE<input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} /></label>
+              <label>{effortLabel(currentEffortMetric)}{currentEffortMetric === "heart_rate_zone" ? <select value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved}>{[1, 2, 3, 4, 5].map((zone) => <option key={zone} value={zone}>Zone {zone}</option>)}</select> : <input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} />}</label>
             </div>
             {!setSaved ? (
               <button className="primary" onClick={saveCurrentSet} disabled={savingSet}>{savingSet ? "Gemmer…" : currentSetWasLogged ? "Gem ændringer" : "Gem sæt"}</button>
             ) : (
               <>
-                <div className="saved">✓ Sæt gemt · {currentExercise.tracking === "distance" ? reps : `${weight} kg × ${reps}`} @ RPE {rpe}</div>
+                <div className="saved">✓ Sæt gemt · {currentExercise.tracking === "distance" ? reps : `${weight} kg × ${reps}`} · {effortSummary(currentEffortMetric, rpe)}</div>
                 <button className="edit-set-button" onClick={() => setSetSaved(false)}>Rediger dette sæt</button>
                 <button className="primary next-set-button" onClick={editingSetKey ? returnToTraining : advanceSession}>
                   {editingSetKey
@@ -909,7 +917,7 @@ export default function Home() {
                     onClick={() => openLoggedSet(log)}
                   >
                     <span>{sessionPlan[log.exerciseIndex]?.name ?? `Øvelse ${log.exerciseIndex + 1}`} · sæt {log.setIndex + 1}</span>
-                    <strong>{sessionPlan[log.exerciseIndex]?.tracking === "distance" ? log.reps : `${log.weight} kg × ${log.reps}`} · RPE {log.rpe}</strong>
+                    <strong>{sessionPlan[log.exerciseIndex]?.tracking === "distance" ? log.reps : `${log.weight} kg × ${log.reps}`} · {effortSummary(log.effortMetric ?? (sessionPlan[log.exerciseIndex] ? exerciseEffortMetric(sessionPlan[log.exerciseIndex]) : "rpe"), log.rpe)}</strong>
                   </button>
                 ))}
               </div>

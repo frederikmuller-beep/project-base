@@ -47,6 +47,7 @@ async function readExportData() {
       weight: trainingSetLogs.weight,
       reps: trainingSetLogs.reps,
       rpe: trainingSetLogs.rpe,
+      effortMetric: trainingSetLogs.effortMetric,
       loggedAt: trainingSetLogs.loggedAt,
     }).from(trainingSessions)
       .leftJoin(trainingSetLogs, eq(trainingSessions.id, trainingSetLogs.sessionId))
@@ -62,12 +63,12 @@ function trainingCsv(training: Awaited<ReturnType<typeof readExportData>>["train
   const headers = [
     "tester_id", "program_id", "session_status", "planned_sets", "completed_sets",
     "session_started_at", "session_completed_at", "exercise_number", "set_number",
-    "weight_kg", "reps", "rpe", "set_logged_at",
+    "weight_kg", "reps", "effort_metric", "effort_value", "set_logged_at",
   ];
   const rows = training.map((row): CsvValue[] => [
     row.testerId, row.programId, row.sessionStatus, row.plannedSets, row.completedSets,
     row.startedAt, row.completedAt, row.exerciseIndex === null ? null : row.exerciseIndex + 1,
-    row.setIndex === null ? null : row.setIndex + 1, row.weight, row.reps, row.rpe, row.loggedAt,
+    row.setIndex === null ? null : row.setIndex + 1, row.weight, row.reps, row.effortMetric, row.rpe, row.loggedAt,
   ]);
   return toCsv(headers, rows);
 }

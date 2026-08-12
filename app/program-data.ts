@@ -7,6 +7,8 @@ export type SessionExercise = {
   defaultWeight: string;
   tracking?: "load" | "distance";
   restSeconds?: number;
+  effortMetric?: "rir" | "heart_rate_zone";
+  effortTarget?: string;
 };
 
 export type ProgramDay = {
@@ -35,7 +37,20 @@ const exercise = (
   plannedReps,
   defaultWeight,
   focus,
+  effortMetric: "rir",
+  effortTarget: "2–4 RIR",
   detail: `${sets} × ${plannedReps} · ${defaultWeight} kg`,
+});
+
+const recoveryExercise = (name: string, sets: number, plannedReps: string, defaultWeight: string, focus: string): SessionExercise => ({
+  ...exercise(name, sets, plannedReps, defaultWeight, focus),
+  effortTarget: "4–6 RIR",
+});
+
+const recoveryCardio = (name: string, plannedReps: string, focus: string): SessionExercise => ({
+  name, sets: 1, plannedReps, defaultWeight: "0", focus, tracking: "distance", restSeconds: 0,
+  effortMetric: "heart_rate_zone", effortTarget: "Pulszone 1–2",
+  detail: `${plannedReps} · pulszone 1–2`,
 });
 
 export const twoWeekPlan: ProgramDay[] = [
@@ -52,9 +67,9 @@ export const twoWeekPlan: ProgramDay[] = [
     programId: "w1-active-recovery", week: 1, day: "TIRSDAG", date: "4. AUG", status: "recovery",
     title: "Aktiv restitution", focus: "Bevægelse, mobilitet og rolig coretræning", duration: 35,
     exercises: [
-      exercise("Cykel", 1, "15 min", "0", "Rolig intensitet og næseåndedræt"),
-      exercise("Hofte- og ankelmobilitet", 3, "1 runde", "0", "Roligt bevægeudslag uden smerte"),
-      exercise("Dead bug", 3, "8", "0", "Hold lænden i gulvet"),
+      recoveryCardio("Cykel", "15 min", "Rolig intensitet og næseåndedræt"),
+      recoveryExercise("Hofte- og ankelmobilitet", 3, "1 runde", "0", "Roligt bevægeudslag uden smerte"),
+      recoveryExercise("Dead bug", 3, "8", "0", "Hold lænden i gulvet"),
     ],
   },
   {
@@ -103,9 +118,9 @@ export const twoWeekPlan: ProgramDay[] = [
     programId: "w2-recovery-flow", week: 2, day: "TIRSDAG", date: "11. AUG", status: "recovery",
     title: "Recovery flow", focus: "Cirkulation, mobilitet og let stabilitet", duration: 30,
     exercises: [
-      exercise("Roning", 1, "12 min", "0", "Jævnt tempo uden at presse pulsen"),
-      exercise("Cossack squat", 3, "6", "0", "Kontrolleret sideforskydning"),
-      exercise("Side plank", 3, "25 sek", "0", "Lang og stabil kropslinje"),
+      recoveryCardio("Roning", "12 min", "Jævnt tempo uden at presse pulsen"),
+      recoveryExercise("Cossack squat", 3, "6", "0", "Kontrolleret sideforskydning"),
+      recoveryExercise("Side plank", 3, "25 sek", "0", "Lang og stabil kropslinje"),
     ],
   },
   {
@@ -142,9 +157,9 @@ export const twoWeekPlan: ProgramDay[] = [
     programId: "w2-test-review", week: 2, day: "SØNDAG", date: "16. AUG", status: "recovery",
     title: "Test review", focus: "Let bevægelse og afsluttende evaluering", duration: 25,
     exercises: [
-      exercise("Cykel", 1, "10 min", "0", "Meget roligt tempo"),
-      exercise("World's greatest stretch", 3, "5", "0", "Roligt bevægeudslag"),
-      exercise("Bird dog", 3, "8", "0", "Undgå rotation i bækkenet"),
+      recoveryCardio("Cykel", "10 min", "Meget roligt tempo"),
+      recoveryExercise("World's greatest stretch", 3, "5", "0", "Roligt bevægeudslag"),
+      recoveryExercise("Bird dog", 3, "8", "0", "Undgå rotation i bækkenet"),
     ],
   },
 ];

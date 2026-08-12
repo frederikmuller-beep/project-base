@@ -73,6 +73,7 @@ export async function GET(request: Request) {
               weight: setLog.weight,
               reps: setLog.reps,
               rpe: setLog.rpe,
+              effortMetric: setLog.effortMetric,
               loggedAt: setLog.loggedAt,
             })),
           };

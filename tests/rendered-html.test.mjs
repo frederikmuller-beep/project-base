@@ -137,12 +137,13 @@ test("persists feedback through the declared D1 database", async () => {
 });
 
 test("persists each tester's planned-session progress and set logs in D1", async () => {
-  const [schema, participantRoute, trainingRoute, testerSession, migration] = await Promise.all([
+  const [schema, participantRoute, trainingRoute, testerSession, migration, effortMigration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/training/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/tester-session.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_dapper_quasimodo.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0007_cute_captain_marvel.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /trainingSessions/);
@@ -154,8 +155,33 @@ test("persists each tester's planned-session progress and set logs in D1", async
   assert.match(trainingRoute, /getTesterId/);
   assert.match(trainingRoute, /insert\(trainingSetLogs\)/);
   assert.match(trainingRoute, /completedSets >= plannedSets/);
+  assert.match(trainingRoute, /effortMetric/);
+  assert.match(trainingRoute, /RIR skal være mellem 0 og 10/);
+  assert.match(trainingRoute, /Vælg pulszone 1–5/);
   assert.match(migration, /CREATE TABLE `training_sessions`/);
   assert.match(migration, /CREATE TABLE `training_set_logs`/);
+  assert.match(effortMigration, /ADD `effort_metric` text DEFAULT 'rpe' NOT NULL/);
+});
+
+test("uses RIR for strength and heart-rate zones for cardio recovery", async () => {
+  const [page, programData, strengthData, swimData, exportRoute] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/program-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/strength-program-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/swim-program-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/admin/export/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(programData, /effortMetric: "rir"/);
+  assert.match(programData, /effortTarget: "4–6 RIR"/);
+  assert.match(programData, /effortMetric: "heart_rate_zone"/);
+  assert.match(programData, /effortTarget: "Pulszone 1–2"/);
+  assert.match(strengthData, /effortMetric: "rir"/);
+  assert.match(swimData, /effortMetric: "heart_rate_zone"/);
+  assert.match(swimData, /session\.intensity === "Restitution" \? "Pulszone 1–2"/);
+  assert.match(page, /RIR er antal gode gentagelser/);
+  assert.match(page, /Uden pulsur: brug samtaletempo og RPE 2–4 som fallback/);
+  assert.match(page, /PULSZONE/);
+  assert.match(exportRoute, /"effort_metric", "effort_value"/);
 });
 
 test("keeps future Apple Health and Garmin integrations provider-neutral", async () => {

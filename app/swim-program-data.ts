@@ -31,6 +31,8 @@ const swim = (name: string, sets: number, meters: number, restSeconds: number, f
   defaultWeight: "0",
   focus,
   tracking: "distance",
+  effortMetric: "heart_rate_zone",
+  effortTarget: "Efter passets mål",
   restSeconds,
   detail: `${sets} × ${meters} m · ${restSeconds} sek pause`,
 });
@@ -74,6 +76,10 @@ const makePlan = (profile: SwimProfile, sessions: SwimSession[]): ProgramDay[] =
     return {
       ...date,
       ...session,
+      exercises: session.exercises.map((exercise) => ({
+        ...exercise,
+        effortTarget: session.intensity === "Restitution" ? "Pulszone 1–2" : exercise.effortTarget,
+      })),
       programId: `${profile}-w${date.week}-s${currentIndex + 1}`,
       status: dayIndex === 0 ? "today" : session.intensity === "Restitution" ? "recovery" : "planned",
       distanceMeters: session.exercises.reduce((total, exercise) => total + exercise.sets * Number.parseFloat(exercise.plannedReps), 0),
@@ -104,7 +110,7 @@ const middleDistanceSessions: SwimSession[] = [
   { title: "Broken race", focus: "Konkurrencefart i opdelte blokke", duration: 80, intensity: "Race pace", exercises: [swim("Indsvømning", 5, 100, 20, "Progressivt"), swim("Race pace", 12, 50, 30, "Præcis fart"), swim("Tærskel crawl", 6, 100, 20, "Hold trykket"), swim("Udsvømning", 4, 50, 15, "Roligt") ] },
   { title: "Tærskel 200", focus: "Robust fart og korte pauser", duration: 80, intensity: "Tærskel", exercises: [swim("Indsvømning", 4, 100, 20, "Find rytmen"), swim("Tærskel crawl", 6, 200, 25, "Ensartede splittider"), swim("Teknikcrawl med paddles", 6, 100, 30, "Fast greb"), swim("Udsvømning", 4, 50, 15, "Let") ] },
   { title: "Fartreserve", focus: "Høj fart med bevaret teknik", duration: 65, intensity: "Hård", exercises: [swim("Indsvømning", 4, 100, 20, "Progressivt"), swim("Sprint fra afsæt", 12, 25, 45, "Maksimal kvalitet"), swim("Race pace", 8, 75, 40, "Kontrolleret høj fart"), swim("Udsvømning", 6, 50, 20, "God restitution") ] },
-  { title: "200-test", focus: "Test pacing, teknik og RPE", duration: 65, intensity: "Test", exercises: [swim("Indsvømning", 6, 100, 20, "Kom gradvist op i fart"), swim("Race pace", 1, 200, 120, "Kontrolleret testløb"), swim("Aerob crawl", 6, 100, 20, "Aktiv restitution"), swim("Udsvømning", 4, 100, 15, "Meget roligt") ] },
+  { title: "200-test", focus: "Test pacing, teknik og pulszone", duration: 65, intensity: "Test", exercises: [swim("Indsvømning", 6, 100, 20, "Kom gradvist op i fart"), swim("Race pace", 1, 200, 120, "Kontrolleret testløb"), swim("Aerob crawl", 6, 100, 20, "Aktiv restitution"), swim("Udsvømning", 4, 100, 15, "Meget roligt") ] },
 ];
 
 const sprintSessions: SwimSession[] = [

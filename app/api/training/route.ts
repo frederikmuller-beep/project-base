@@ -14,6 +14,7 @@ type TrainingPayload = {
   weight?: string;
   reps?: string;
   rpe?: string;
+  effortMetric?: "rir" | "heart_rate_zone";
 };
 
 const sessionSetLogs = async (sessionId: string) => getDb()
@@ -23,6 +24,7 @@ const sessionSetLogs = async (sessionId: string) => getDb()
     weight: trainingSetLogs.weight,
     reps: trainingSetLogs.reps,
     rpe: trainingSetLogs.rpe,
+    effortMetric: trainingSetLogs.effortMetric,
   })
   .from(trainingSetLogs)
   .where(eq(trainingSetLogs.sessionId, sessionId));
@@ -139,8 +141,13 @@ export async function POST(request: Request) {
     const weight = cleanLogValue(payload.weight, 12);
     const reps = cleanLogValue(payload.reps, 12);
     const rpe = cleanLogValue(payload.rpe, 8);
+    const effortMetric = plannedExercise.effortMetric ?? (plannedExercise.tracking === "distance" ? "heart_rate_zone" : "rir");
     if (!weight || !reps || !rpe) {
-      return Response.json({ error: "Udfyld sættets data og RPE før du gemmer." }, { status: 400 });
+      return Response.json({ error: `Udfyld sættets data og ${effortMetric === "rir" ? "RIR" : "pulszone"} før du gemmer.` }, { status: 400 });
+    }
+    const effortNumber = Number(rpe);
+    if (!Number.isFinite(effortNumber) || (effortMetric === "rir" ? effortNumber < 0 || effortNumber > 10 : !Number.isInteger(effortNumber) || effortNumber < 1 || effortNumber > 5)) {
+      return Response.json({ error: effortMetric === "rir" ? "RIR skal være mellem 0 og 10." : "Vælg pulszone 1–5." }, { status: 400 });
     }
 
     await db.insert(trainingSetLogs).values({
@@ -150,9 +157,10 @@ export async function POST(request: Request) {
       weight,
       reps,
       rpe,
+      effortMetric,
     }).onConflictDoUpdate({
       target: [trainingSetLogs.sessionId, trainingSetLogs.exerciseIndex, trainingSetLogs.setIndex],
-      set: { weight, reps, rpe, loggedAt: sql`CURRENT_TIMESTAMP` },
+      set: { weight, reps, rpe, effortMetric, loggedAt: sql`CURRENT_TIMESTAMP` },
     });
 
     const [countRow] = await db
@@ -173,7 +181,7 @@ export async function POST(request: Request) {
       completedSets,
       plannedSets,
       status,
-      savedSet: { exerciseIndex, setIndex, weight, reps, rpe },
+      savedSet: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric },
     });
   } catch (error) {
     if (error instanceof Error && error.message === "TESTER_REQUIRED") {
