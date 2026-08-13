@@ -32,6 +32,10 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(page, /Dine næste to uger/);
   assert.match(page, /weekTotals\.sessions/);
   assert.match(page, /startPlannedSession/);
+  assert.match(page, /NÆSTE PROGRAM/);
+  assert.match(page, /FRA DIN TRÆNER/);
+  assert.match(page, /Fortsæt program/);
+  assert.match(page, /coachPlans\.find/);
   assert.match(page, /\/api\/participant/);
   assert.match(page, /\/api\/training/);
   assert.match(page, /youtube-nocookie\.com\/embed/);

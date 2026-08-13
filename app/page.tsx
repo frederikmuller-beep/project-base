@@ -101,6 +101,20 @@ export default function Home() {
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
   const activeToday = activePlan[0];
+  const nextProgram = useMemo(() => {
+    const coachProgramIds = new Set(coachPlans.map((day) => day.programId));
+    const availablePrograms = [...coachPlans, ...activePlan].filter((day) => day.programId && day.exercises.length > 0);
+    const day = availablePrograms.find((candidate) => progress[candidate.programId!]?.status === "active")
+      ?? coachPlans.find((candidate) => candidate.programId && progress[candidate.programId]?.status !== "completed")
+      ?? activePlan.find((candidate) => candidate.programId && candidate.exercises.length > 0 && progress[candidate.programId]?.status !== "completed")
+      ?? null;
+    if (!day?.programId) return null;
+    return {
+      day,
+      source: coachProgramIds.has(day.programId) ? "coach" as const : "base" as const,
+      progress: progress[day.programId],
+    };
+  }, [activePlan, coachPlans, progress]);
   const weekTotals = useMemo(() => activePlan.reduce(
     (totals, day) => ({
       sessions: totals.sessions + (day.duration > 0 ? 1 : 0),
@@ -497,16 +511,31 @@ export default function Home() {
             <b>→</b>
           </a>
 
-          <article className="hero-card">
-            <div className="hero-meta"><span>{activeProfile === "weightlifting" ? "VÆGTLØFTNING" : `STYRKETRÆNING · ${trainingProfileLabel(activeProfile).toLocaleUpperCase("da-DK")}`}</span><span>{activeToday.duration} MIN</span></div>
-            <h2>{activeToday.title}</h2>
-            <p>{activeToday.focus}.</p>
-            <div className="session-stats">
-              <div><strong>{activeToday.exercises.length}</strong><span>blokke</span></div>
-              <div><strong>{countProgramSets(activeToday)}</strong><span>arbejdssæt</span></div>
-              <div><strong>{activeProfile === "weightlifting" ? "3.050 kg" : activeToday.intensity}</strong><span>{activeProfile === "weightlifting" ? "samlet volumen" : "intensitet"}</span></div>
-            </div>
-          </article>
+          {nextProgram ? (
+            <article className="hero-card next-program-card">
+              <div className="next-program-label">
+                <span>NÆSTE PROGRAM</span>
+                <b>{nextProgram.source === "coach" ? "FRA DIN TRÆNER" : "BASE-PROGRAM"}</b>
+              </div>
+              <div className="hero-meta"><span>{nextProgram.day.day} · {nextProgram.day.date}</span><span>{nextProgram.day.duration} MIN</span></div>
+              <h2>{nextProgram.day.title}</h2>
+              <p>{nextProgram.day.focus}.</p>
+              <div className="session-stats">
+                <div><strong>{nextProgram.day.exercises.length}</strong><span>blokke</span></div>
+                <div><strong>{countProgramSets(nextProgram.day)}</strong><span>arbejdssæt</span></div>
+                <div><strong>{nextProgram.progress?.completedSets ?? 0}/{countProgramSets(nextProgram.day)}</strong><span>udført</span></div>
+              </div>
+              <button className="next-program-start" onClick={() => startPlannedSession(nextProgram.day)}>
+                {nextProgram.progress?.status === "active" ? "Fortsæt program" : "Start program"}<b>→</b>
+              </button>
+            </article>
+          ) : (
+            <article className="hero-card all-programs-complete">
+              <div className="hero-meta"><span>TESTPERIODE</span><span>FÆRDIG</span></div>
+              <h2>Alle programmer er gennemført</h2>
+              <p>Tak for indsatsen. Du kan stadig se og rette dine udførte sæt i tougersoversigten.</p>
+            </article>
+          )}
 
           <button className="readiness-card" onClick={() => setView("readiness")}>
             <span className="pulse-dot" />
@@ -520,16 +549,16 @@ export default function Home() {
             <b>→</b>
           </button>
 
-          <div className="section-head"><h3>Dagens plan</h3><span>{activeToday.exercises.length} blokke</span></div>
+          {nextProgram && <><div className="section-head"><h3>Øvelser i næste program</h3><span>{nextProgram.day.exercises.length} blokke</span></div>
           <div className="exercise-list">
-            {activeToday.exercises.map((exercise, index) => (
+            {nextProgram.day.exercises.map((exercise, index) => (
               <div className="exercise" key={exercise.name}>
                 <span className="exercise-number">0{index + 1}</span>
                 <div><strong>{exercise.name}</strong><small>{exercise.detail}</small></div>
                 <button className="exercise-video-button" aria-label={`Se video for ${exercise.name}`} onClick={() => setVideoExercise(exercise.name)}>▶</button>
               </div>
             ))}
-          </div>
+          </div></>}
           <button className="library-link" onClick={() => setView("library")}>
             <span><strong>Udforsk styrkebiblioteket</strong><small>{athleteExerciseLibrary.length} øvelser · {libraryCategories.length - 1} kategorier</small></span>
             <b>→</b>
@@ -548,7 +577,7 @@ export default function Home() {
               <button className="secondary" onClick={() => setView("extraDay")}>Se ekstra træningsdag</button>
             </article>
           )}
-          <button className="primary" onClick={() => startPlannedSession(activeToday)}>Start dagens træning</button>
+          {nextProgram && <button className="primary" onClick={() => startPlannedSession(nextProgram.day)}>{nextProgram.progress?.status === "active" ? "Fortsæt næste program" : "Start næste program"}</button>}
           <article className="feedback-entry">
             <span className="feedback-entry-icon">◎</span>
             <div>
@@ -843,8 +872,8 @@ export default function Home() {
             <div className="weight-change"><div><small>Planlagt snatch</small><strong>70 kg</strong></div><span>→</span><div><small>Foreslået</small><strong>{pain ? "—" : readiness.level === "Grøn" ? "70 kg" : "65 kg"}</strong></div></div>
             <p>Du kan altid se den oprindelige plan og ændre beslutningen.</p>
           </article>
-          {!pain && <button className="primary" onClick={() => startPlannedSession(activeToday, readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
-          <button className="secondary" onClick={() => startPlannedSession(activeToday)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
+          {!pain && <button className="primary" onClick={() => startPlannedSession(nextProgram?.day ?? activeToday, readiness.level !== "Grøn")}>{readiness.level === "Grøn" ? "Fortsæt med planen" : "Anvend og start træning"}</button>}
+          <button className="secondary" onClick={() => startPlannedSession(nextProgram?.day ?? activeToday)}>{pain ? "Gå tilbage til planen" : "Behold oprindelig plan"}</button>
           <p className="safety">BASE giver træningsstøtte – ikke medicinsk rådgivning.</p>
         </section>
       )}
