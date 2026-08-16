@@ -68,6 +68,7 @@ export const trainingSetLogs = sqliteTable("training_set_logs", {
   reps: text("reps").notNull(),
   rpe: text("rpe").notNull(),
   effortMetric: text("effort_metric", { enum: ["rpe", "rir", "heart_rate_zone"] }).notNull().default("rpe"),
+  techniqueQuality: text("technique_quality", { enum: ["good", "uncertain", "poor"] }),
   loggedAt: text("logged_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   uniqueIndex("idx_training_set_logs_session_position").on(table.sessionId, table.exerciseIndex, table.setIndex),

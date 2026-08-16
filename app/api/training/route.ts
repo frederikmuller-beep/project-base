@@ -5,6 +5,7 @@ import { coachPlanToProgramDay } from "../../../lib/coach-plans";
 import { countProgramSets, getProgram } from "../../program-data";
 import { getStrengthProgram } from "../../strength-program-data";
 import { getTesterId } from "../../../lib/tester-session";
+import { buildLoadSuggestion, type TechniqueQuality } from "../../../lib/training-analytics";
 
 type TrainingPayload = {
   action?: "start" | "log_set";
@@ -15,6 +16,9 @@ type TrainingPayload = {
   reps?: string;
   rpe?: string;
   effortMetric?: "rir" | "heart_rate_zone";
+  techniqueQuality?: TechniqueQuality;
+  readinessScore?: number | null;
+  pain?: boolean | null;
 };
 
 const sessionSetLogs = async (sessionId: string) => getDb()
@@ -25,6 +29,7 @@ const sessionSetLogs = async (sessionId: string) => getDb()
     reps: trainingSetLogs.reps,
     rpe: trainingSetLogs.rpe,
     effortMetric: trainingSetLogs.effortMetric,
+    techniqueQuality: trainingSetLogs.techniqueQuality,
   })
   .from(trainingSetLogs)
   .where(eq(trainingSetLogs.sessionId, sessionId));
@@ -149,6 +154,12 @@ export async function POST(request: Request) {
     if (!Number.isFinite(effortNumber) || (effortMetric === "rir" ? effortNumber < 0 || effortNumber > 10 : !Number.isInteger(effortNumber) || effortNumber < 1 || effortNumber > 5)) {
       return Response.json({ error: effortMetric === "rir" ? "RIR skal være mellem 0 og 10." : "Vælg pulszone 1–5." }, { status: 400 });
     }
+    const techniqueQuality = effortMetric === "rir" && (payload.techniqueQuality === "good" || payload.techniqueQuality === "uncertain" || payload.techniqueQuality === "poor")
+      ? payload.techniqueQuality
+      : null;
+    if (effortMetric === "rir" && !techniqueQuality) {
+      return Response.json({ error: "Vurdér den tekniske kvalitet før du gemmer sættet." }, { status: 400 });
+    }
 
     await db.insert(trainingSetLogs).values({
       sessionId: session.id,
@@ -158,9 +169,10 @@ export async function POST(request: Request) {
       reps,
       rpe,
       effortMetric,
+      techniqueQuality,
     }).onConflictDoUpdate({
       target: [trainingSetLogs.sessionId, trainingSetLogs.exerciseIndex, trainingSetLogs.setIndex],
-      set: { weight, reps, rpe, effortMetric, loggedAt: sql`CURRENT_TIMESTAMP` },
+      set: { weight, reps, rpe, effortMetric, techniqueQuality, loggedAt: sql`CURRENT_TIMESTAMP` },
     });
 
     const [countRow] = await db
@@ -176,12 +188,30 @@ export async function POST(request: Request) {
       completedAt: status === "completed" ? sql`CURRENT_TIMESTAMP` : null,
     }).where(eq(trainingSessions.id, session.id));
 
+    const exerciseLogs = effortMetric === "rir" ? await db.select({
+      exerciseIndex: trainingSetLogs.exerciseIndex,
+      setIndex: trainingSetLogs.setIndex,
+      weight: trainingSetLogs.weight,
+      reps: trainingSetLogs.reps,
+      rpe: trainingSetLogs.rpe,
+      effortMetric: trainingSetLogs.effortMetric,
+      techniqueQuality: trainingSetLogs.techniqueQuality,
+    }).from(trainingSetLogs).where(and(eq(trainingSetLogs.sessionId, session.id), eq(trainingSetLogs.exerciseIndex, exerciseIndex as number))) : [];
+    const sparring = effortMetric === "rir" ? buildLoadSuggestion({
+      currentWeight: Number.parseFloat(weight) || 0,
+      recentSets: exerciseLogs.sort((a, b) => a.setIndex - b.setIndex),
+      readinessScore: typeof payload.readinessScore === "number" ? payload.readinessScore : null,
+      pain: typeof payload.pain === "boolean" ? payload.pain : null,
+      hasRemainingSet: (setIndex as number) + 1 < plannedExercise.sets,
+    }) : null;
+
     return Response.json({
       programId: program.programId,
       completedSets,
       plannedSets,
       status,
-      savedSet: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric },
+      savedSet: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric, techniqueQuality },
+      sparring,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "TESTER_REQUIRED") {

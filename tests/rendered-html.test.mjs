@@ -152,13 +152,14 @@ test("persists feedback through the declared D1 database", async () => {
 });
 
 test("persists each tester's planned-session progress and set logs in D1", async () => {
-  const [schema, participantRoute, trainingRoute, testerSession, migration, effortMigration] = await Promise.all([
+  const [schema, participantRoute, trainingRoute, testerSession, migration, effortMigration, techniqueMigration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/training/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/tester-session.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_dapper_quasimodo.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0007_cute_captain_marvel.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0008_nostalgic_thena.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /trainingSessions/);
@@ -173,9 +174,35 @@ test("persists each tester's planned-session progress and set logs in D1", async
   assert.match(trainingRoute, /effortMetric/);
   assert.match(trainingRoute, /RIR skal være mellem 0 og 10/);
   assert.match(trainingRoute, /Vælg pulszone 1–5/);
+  assert.match(trainingRoute, /techniqueQuality/);
+  assert.match(trainingRoute, /buildLoadSuggestion/);
   assert.match(migration, /CREATE TABLE `training_sessions`/);
   assert.match(migration, /CREATE TABLE `training_set_logs`/);
   assert.match(effortMigration, /ADD `effort_metric` text DEFAULT 'rpe' NOT NULL/);
+  assert.match(techniqueMigration, /ADD `technique_quality` text/);
+});
+
+test("builds a private athlete dashboard from persisted training data", async () => {
+  const [page, dashboard, analyticsRoute, analytics, exportRoute] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/athlete-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/training/analytics/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/training-analytics.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/admin/export/route.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /Se din udvikling/);
+  assert.match(page, /BASE SPARRING/);
+  assert.match(page, /Teknisk kvalitet/);
+  assert.match(dashboard, /FORVENTET VOLUMEN/);
+  assert.match(dashboard, /FAKTISK INTENSITET/);
+  assert.match(dashboard, /RELATIV STYRKE/);
+  assert.match(dashboard, /Første registrering = 100/);
+  assert.match(analyticsRoute, /getTesterId/);
+  assert.match(analyticsRoute, /private, no-store/);
+  assert.match(analytics, /estimatedOneRepMax/);
+  assert.match(analytics, /readinessScore !== null && readinessScore >= 72/);
+  assert.match(analytics, /lastTwo\.every\(\(set\) => set\.techniqueQuality === "good"\)/);
+  assert.match(exportRoute, /technique_quality/);
 });
 
 test("uses RIR for strength and heart-rate zones for cardio recovery", async () => {

@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  buildLoadSuggestion,
+  calculateActualWorkload,
+  calculatePlannedWorkload,
+  estimatedOneRepMax,
+  parseEffortRepCount,
+  parseRepCount,
+} from "../lib/training-analytics.ts";
+
+const program = {
+  programId: "test",
+  week: 1,
+  day: "MANDAG",
+  date: "1. AUG",
+  status: "planned",
+  title: "Test",
+  focus: "Test",
+  duration: 45,
+  exercises: [{ name: "Split squat", detail: "", focus: "", sets: 3, plannedReps: "8 pr. ben", defaultWeight: "20", effortMetric: "rir", effortTarget: "2–4 RIR" }],
+};
+
+test("counts unilateral reps twice for volume but once per side for intensity and e1RM", () => {
+  assert.equal(parseRepCount("8 pr. ben"), 16);
+  assert.equal(parseEffortRepCount("8 pr. ben"), 8);
+  assert.equal(Math.round(estimatedOneRepMax(100, 5, 3) * 10) / 10, 126.7);
+  const planned = calculatePlannedWorkload([program]);
+  assert.equal(planned.volumeKg, 960);
+  const actual = calculateActualWorkload([{ program, logs: [{ exerciseIndex: 0, setIndex: 0, weight: "20", reps: "8 pr. ben", rpe: "3", effortMetric: "rir", techniqueQuality: "good" }] }]);
+  assert.equal(actual.volumeKg, 320);
+});
+
+test("suggests a conservative increase only after all three safety signals are positive", () => {
+  const recentSets = [0, 1].map((setIndex) => ({ exerciseIndex: 0, setIndex, weight: "70", reps: "3", rpe: "3", effortMetric: "rir", techniqueQuality: "good" }));
+  const suggestion = buildLoadSuggestion({ currentWeight: 70, recentSets, readinessScore: 82, pain: false, hasRemainingSet: true });
+  assert.equal(suggestion.decision, "increase");
+  assert.equal(suggestion.proposedWeight, 72.5);
+  const held = buildLoadSuggestion({ currentWeight: 70, recentSets, readinessScore: 82, pain: true, hasRemainingSet: true });
+  assert.equal(held.decision, "hold");
+  assert.match(held.reasons.join(" "), /Smerte/);
+});

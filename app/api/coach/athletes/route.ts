@@ -74,6 +74,7 @@ export async function GET(request: Request) {
               reps: setLog.reps,
               rpe: setLog.rpe,
               effortMetric: setLog.effortMetric,
+              techniqueQuality: setLog.techniqueQuality,
               loggedAt: setLog.loggedAt,
             })),
           };

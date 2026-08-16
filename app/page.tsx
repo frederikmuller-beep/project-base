@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../lib/health-data";
+import type { AthleteDashboardData, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
+import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, type ProgramDay, type SessionExercise } from "./program-data";
 import { defaultSwimProfile, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
 
-type View = "today" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
+type View = "today" | "dashboard" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
 type ExtraDayExercise = {
   name: string;
@@ -40,6 +42,7 @@ type TrainingSetLog = {
   reps: string;
   rpe: string;
   effortMetric?: "rpe" | "rir" | "heart_rate_zone";
+  techniqueQuality?: TechniqueQuality | null;
 };
 
 const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
@@ -72,6 +75,11 @@ export default function Home() {
   const [weight, setWeight] = useState("70");
   const [reps, setReps] = useState("2");
   const [rpe, setRpe] = useState("3");
+  const [techniqueQuality, setTechniqueQuality] = useState<TechniqueQuality | "">("");
+  const [readinessChecked, setReadinessChecked] = useState(false);
+  const [loadSuggestion, setLoadSuggestion] = useState<LoadSuggestion | null>(null);
+  const [dashboardData, setDashboardData] = useState<AthleteDashboardData | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("session");
   const [sessionPlan, setSessionPlan] = useState<SessionExercise[]>(defaultPlan[0].exercises);
   const [extraDraft, setExtraDraft] = useState<ExtraDayExercise[]>([]);
@@ -227,6 +235,25 @@ export default function Home() {
     setCoachPlans(data.plans ?? []);
   };
 
+  const loadDashboard = async () => {
+    setDashboardLoading(true);
+    try {
+      const response = await fetch("/api/training/analytics", { cache: "no-store" });
+      if (!response.ok) {
+        setDashboardData(null);
+        return;
+      }
+      setDashboardData((await response.json()) as AthleteDashboardData);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  const openDashboard = () => {
+    setView("dashboard");
+    void loadDashboard();
+  };
+
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
@@ -272,6 +299,7 @@ export default function Home() {
     setProgress({});
     setCoachPlans([]);
     setHealthSummary(null);
+    setDashboardData(null);
     setIdentityError("");
   };
 
@@ -290,7 +318,7 @@ export default function Home() {
   const reset = () => {
     setView("today"); setEnergy(3); setSleep(3); setSoreness(3); setPain(false);
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
-    setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe(activeToday.exercises[0] ? defaultEffortValue(activeToday.exercises[0]) : "3"); setSessionPlan(activeToday.exercises);
+    setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe(activeToday.exercises[0] ? defaultEffortValue(activeToday.exercises[0]) : "3"); setTechniqueQuality(""); setLoadSuggestion(null); setSessionPlan(activeToday.exercises);
     setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
     setRestSecondsRemaining(90); setRestRunning(false);
   };
@@ -321,6 +349,8 @@ export default function Home() {
     setWeight(openingLog?.weight ?? (useAdjustment && position.exerciseIndex === 0 && openingExercise.tracking !== "distance" ? "65" : openingExercise.defaultWeight));
     setReps(openingLog?.reps ?? openingExercise.plannedReps);
     setRpe(openingLog?.rpe ?? defaultEffortValue(openingExercise));
+    setTechniqueQuality(openingLog?.techniqueQuality ?? "");
+    setLoadSuggestion(null);
     setRestSecondsRemaining(openingExercise.restSeconds ?? 90);
     setRestRunning(false);
     setView("session");
@@ -353,9 +383,13 @@ export default function Home() {
   const saveCurrentSet = async () => {
     if (setSaved) return;
     setSaveError("");
+    if (currentEffortMetric === "rir" && !techniqueQuality) {
+      setSaveError("Vurdér den tekniske kvalitet før du gemmer sættet.");
+      return;
+    }
     if (!sessionProgramId) {
       setCompletedSets((count) => count + 1);
-      setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric: currentEffortMetric } }));
+      setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric: currentEffortMetric, techniqueQuality: techniqueQuality || null } }));
       setSetSaved(true);
       setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
       setRestRunning(true);
@@ -376,13 +410,17 @@ export default function Home() {
           reps,
           rpe,
           effortMetric: currentEffortMetric,
+          techniqueQuality: techniqueQuality || undefined,
+          readinessScore: readinessChecked ? readiness.score : null,
+          pain: readinessChecked ? pain : null,
         }),
       });
-      const data = (await response.json()) as SessionProgress & { savedSet?: TrainingSetLog; error?: string };
+      const data = (await response.json()) as SessionProgress & { savedSet?: TrainingSetLog; sparring?: LoadSuggestion | null; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Sættet kunne ikke gemmes.");
       setCompletedSets(data.completedSets);
       setProgress((current) => ({ ...current, [data.programId]: data }));
       if (data.savedSet) setSessionLogs((logs) => ({ ...logs, [setLogKey(data.savedSet!.exerciseIndex, data.savedSet!.setIndex)]: data.savedSet! }));
+      setLoadSuggestion(data.sparring ?? null);
       setSetSaved(true);
       if (!currentSetWasLogged) {
         setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
@@ -403,6 +441,8 @@ export default function Home() {
     setWeight(log.weight);
     setReps(log.reps);
     setRpe(log.rpe);
+    setTechniqueQuality(log.techniqueQuality ?? "");
+    setLoadSuggestion(null);
     setSetSaved(true);
     setRestRunning(false);
     setSaveError("");
@@ -420,6 +460,7 @@ export default function Home() {
     setWeight(resumeLog?.weight ?? resumeExercise.defaultWeight);
     setReps(resumeLog?.reps ?? resumeExercise.plannedReps);
     setRpe(resumeLog?.rpe ?? defaultEffortValue(resumeExercise));
+    setTechniqueQuality(resumeLog?.techniqueQuality ?? "");
     setSetSaved(Boolean(resumeLog));
     setEditingSetKey(null);
     setResumePosition(null);
@@ -430,6 +471,8 @@ export default function Home() {
     if (setIndex + 1 < currentExercise.sets) {
       setSetIndex((index) => index + 1);
       setSetSaved(false);
+      setTechniqueQuality("");
+      setLoadSuggestion(null);
       setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
       setRestRunning(false);
       return;
@@ -442,12 +485,27 @@ export default function Home() {
       setWeight(nextExercise.defaultWeight);
       setReps(nextExercise.plannedReps);
       setRpe(defaultEffortValue(nextExercise));
+      setTechniqueQuality("");
+      setLoadSuggestion(null);
       setRestSecondsRemaining(nextExercise.restSeconds ?? 90);
       setRestRunning(false);
       return;
     }
 
     setView("complete");
+  };
+
+  const acceptLoadSuggestion = () => {
+    if (loadSuggestion?.decision !== "increase" || loadSuggestion.proposedWeight === null || setIndex + 1 >= currentExercise.sets) return;
+    setSetIndex((index) => index + 1);
+    setWeight(String(loadSuggestion.proposedWeight));
+    setReps(currentExercise.plannedReps);
+    setRpe(defaultEffortValue(currentExercise));
+    setTechniqueQuality("");
+    setSetSaved(false);
+    setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
+    setRestRunning(false);
+    setLoadSuggestion(null);
   };
 
   const toggleExtraExercise = (exercise: ExerciseDefinition) => {
@@ -537,6 +595,12 @@ export default function Home() {
             </article>
           )}
 
+          <button className="athlete-dashboard-entry" onClick={openDashboard}>
+            <span className="dashboard-entry-icon">↗</span>
+            <span><strong>Se din udvikling</strong><small>Volumen · intensitet · estimeret 1RM</small></span>
+            <b>→</b>
+          </button>
+
           <button className="readiness-card" onClick={() => setView("readiness")}>
             <span className="pulse-dot" />
             <span><strong>Check din readiness</strong><small>30 sekunder · tilpas dagens belastning</small></span>
@@ -588,6 +652,8 @@ export default function Home() {
           </article>
         </section>
       )}
+
+      {view === "dashboard" && <AthleteDashboard data={dashboardData} loading={dashboardLoading} onBack={() => setView("today")} />}
 
       {view === "week" && (
         <section className="screen enter">
@@ -855,7 +921,7 @@ export default function Home() {
             <div><strong>Har du smerter?</strong><small>Ikke almindelig muskelømhed</small></div>
             <button className={pain ? "toggle on" : "toggle"} onClick={() => setPain(!pain)} aria-pressed={pain}><span /></button>
           </div>
-          <button className="primary" onClick={() => setView("recommendation")}>Se min anbefaling</button>
+          <button className="primary" onClick={() => { setReadinessChecked(true); setView("recommendation"); }}>Se min anbefaling</button>
         </section>
       )}
 
@@ -916,12 +982,29 @@ export default function Home() {
               <label>{currentExercise.tracking === "distance" ? "DISTANCE" : "REPS"}<input inputMode="text" value={reps} onChange={e => setReps(e.target.value)} disabled={setSaved} /></label>
               <label>{effortLabel(currentEffortMetric)}{currentEffortMetric === "heart_rate_zone" ? <select value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved}>{[1, 2, 3, 4, 5].map((zone) => <option key={zone} value={zone}>Zone {zone}</option>)}</select> : <input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} />}</label>
             </div>
+            {currentEffortMetric === "rir" && (
+              <div className="technique-quality">
+                <div><strong>Teknisk kvalitet</strong><small>Vurdér sættet ærligt — det indgår i BASEs belastningsforslag.</small></div>
+                <div>
+                  {([['good', 'God'], ['uncertain', 'Usikker'], ['poor', 'Ikke god']] as const).map(([value, label]) => (
+                    <button key={value} className={techniqueQuality === value ? `active ${value}` : ""} onClick={() => setTechniqueQuality(value)} disabled={setSaved}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {!setSaved ? (
               <button className="primary" onClick={saveCurrentSet} disabled={savingSet}>{savingSet ? "Gemmer…" : currentSetWasLogged ? "Gem ændringer" : "Gem sæt"}</button>
             ) : (
               <>
                 <div className="saved">✓ Sæt gemt · {currentExercise.tracking === "distance" ? reps : `${weight} kg × ${reps}`} · {effortSummary(currentEffortMetric, rpe)}</div>
                 <button className="edit-set-button" onClick={() => setSetSaved(false)}>Rediger dette sæt</button>
+                {loadSuggestion && currentEffortMetric === "rir" && !editingSetKey && (
+                  <article className={`base-sparring ${loadSuggestion.decision}`}>
+                    <div><span>BASE SPARRING</span><strong>{loadSuggestion.headline}</strong></div>
+                    <ul>{loadSuggestion.reasons.slice(0, 3).map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                    {loadSuggestion.decision === "increase" && <div className="base-sparring-actions"><button onClick={acceptLoadSuggestion}>Brug {String(loadSuggestion.proposedWeight).replace(".", ",")} kg</button><button onClick={() => setLoadSuggestion(null)}>Behold planen</button></div>}
+                  </article>
+                )}
                 <button className="primary next-set-button" onClick={editingSetKey ? returnToTraining : advanceSession}>
                   {editingSetKey
                     ? "Tilbage til træningen"
