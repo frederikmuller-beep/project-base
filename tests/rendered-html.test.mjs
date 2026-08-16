@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("keeps the BASE dashboard, profile-specific two-week plans and both feedback entry points", async () => {
-  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData] = await Promise.all([
+  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData, exerciseUnits] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/program-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/swim-program-data.ts", import.meta.url), "utf8"),
@@ -11,6 +11,7 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
     readFile(new URL("../app/feedback-form.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-videos.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/exercise-units.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /God træning\./);
@@ -53,6 +54,14 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(programData, /w2-test-review/);
   assert.match(programData, /Bulgarian split squat", 3, "8 pr\. ben"/);
   assert.match(strengthProgramData, /Bulgarian split squat", 3, "8 pr\. ben"/);
+  assert.match(exerciseUnits, /"Split squat": "ben"/);
+  assert.match(exerciseUnits, /"Single-arm cable pulldown": "arm"/);
+  assert.match(exerciseUnits, /"Side plank": "side"/);
+  assert.match(exerciseUnits, /"Enarmscrawl": "arm"/);
+  assert.match(exerciseUnits, /clarifyUnilateralReps/);
+  assert.match(exerciseData, /reps: clarifyUnilateralReps/);
+  assert.match(strengthProgramData, /clarifyUnilateralReps/);
+  assert.match(swimProgramData, /clarifyUnilateralReps/);
   assert.match(swimProgramData, /long_distance: makePlan/);
   assert.match(swimProgramData, /middle_distance: makePlan/);
   assert.match(swimProgramData, /sprint: makePlan/);

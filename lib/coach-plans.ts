@@ -1,4 +1,5 @@
 import type { ProgramDay, SessionExercise } from "../app/program-data";
+import { clarifyUnilateralReps } from "../app/exercise-units";
 
 export type CoachPlanExercise = {
   name: string;
@@ -57,13 +58,17 @@ export const coachPlanToProgramDay = (plan: CoachPlanRecord): ProgramDay => {
     duration: plan.duration,
     intensity: plan.trainingType === "swim" ? "Vandpas" : "Trænerplan",
     distanceMeters: exercises.reduce((sum, exercise) => exercise.tracking === "distance" ? sum + exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0) : sum, 0),
-    exercises: exercises.map((exercise): SessionExercise => ({
+    exercises: exercises.map((exercise): SessionExercise => {
+      const plannedReps = clarifyUnilateralReps(exercise.name, exercise.plannedReps);
+      return {
       ...exercise,
+      plannedReps,
       effortMetric: plan.trainingType === "swim" ? "heart_rate_zone" : "rir",
       effortTarget: plan.trainingType === "swim" ? "Pulszone efter trænerens plan" : "RIR efter trænerens plan",
       detail: exercise.tracking === "distance"
-        ? `${exercise.sets} × ${exercise.plannedReps} · ${exercise.restSeconds} sek pause`
-        : `${exercise.sets} × ${exercise.plannedReps} · ${exercise.defaultWeight} kg · ${exercise.restSeconds} sek pause`,
-    })),
+        ? `${exercise.sets} × ${plannedReps} · ${exercise.restSeconds} sek pause`
+        : `${exercise.sets} × ${plannedReps} · ${exercise.defaultWeight} kg · ${exercise.restSeconds} sek pause`,
+    };
+    }),
   };
 };

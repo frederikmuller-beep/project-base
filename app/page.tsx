@@ -24,7 +24,7 @@ type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 const defaultPlan = getTrainingPlan(defaultSwimProfile);
 
 const countReps = (value: string) =>
-  value.split("+").reduce((sum, part) => sum + (Number(part) || 0), 0);
+  value.split("+").reduce((sum, part) => sum + (Number.parseFloat(part) || 0), 0);
 
 type SessionProgress = {
   programId: string;

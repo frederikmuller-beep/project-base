@@ -1,3 +1,5 @@
+import { clarifyUnilateralReps } from "./exercise-units";
+
 export type ExerciseDefinition = {
   name: string;
   category: "Konkurrenceløft" | "Snatch" | "Clean" | "Jerk" | "Squat" | "Træk" | "Assistance" | "Svømmestyrke" | "Svømning";
@@ -9,7 +11,7 @@ export type ExerciseDefinition = {
   format?: "load" | "distance";
 };
 
-export const exerciseLibrary: ExerciseDefinition[] = [
+const exerciseLibrarySource: ExerciseDefinition[] = [
   { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse", sets: "5", reps: "2", weight: "60" },
   { name: "Hang snatch", category: "Snatch", target: "Timing · eksplosivitet", cue: "Hold spændingen over knæet", sets: "4", reps: "3", weight: "50" },
   { name: "Power snatch", category: "Snatch", target: "Hastighed · træk", cue: "Modtag stangen højt og stabilt", sets: "5", reps: "2", weight: "55" },
@@ -189,3 +191,8 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Vendingstræning", category: "Svømning", target: "Vending · acceleration", cue: "Gå hurtigt ind, roter kompakt og skub i en fast linje", sets: "8", reps: "15 m", weight: "0", format: "distance" },
   { name: "Udsvømning", category: "Svømning", target: "Restitution · bevægelse", cue: "Sænk tempoet og find en rolig vejrtrækning", sets: "4", reps: "100 m", weight: "0", format: "distance" },
 ];
+
+export const exerciseLibrary: ExerciseDefinition[] = exerciseLibrarySource.map((exercise) => ({
+  ...exercise,
+  reps: clarifyUnilateralReps(exercise.name, exercise.reps),
+}));

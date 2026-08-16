@@ -1,18 +1,22 @@
 import type { ProgramDay, SessionExercise } from "./program-data";
 import type { StrengthProfile } from "./swim-program-data";
+import { clarifyUnilateralReps } from "./exercise-units";
 
-const strength = (name: string, sets: number, reps: string, weight: string, restSeconds: number, focus: string): SessionExercise => ({
+const strength = (name: string, sets: number, reps: string, weight: string, restSeconds: number, focus: string): SessionExercise => {
+  const clearReps = clarifyUnilateralReps(name, reps);
+  return {
   name,
   sets,
-  plannedReps: reps,
+  plannedReps: clearReps,
   defaultWeight: weight,
   focus,
   tracking: "load",
   effortMetric: "rir",
   effortTarget: "2–4 RIR",
   restSeconds,
-  detail: `${sets} × ${reps} · ${weight} kg · ${restSeconds} sek pause`,
-});
+  detail: `${sets} × ${clearReps} · ${weight} kg · ${restSeconds} sek pause`,
+};
+};
 
 type StrengthSession = {
   title: string;

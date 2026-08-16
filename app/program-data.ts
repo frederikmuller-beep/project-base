@@ -1,3 +1,5 @@
+import { clarifyUnilateralReps } from "./exercise-units";
+
 export type SessionExercise = {
   name: string;
   detail: string;
@@ -31,16 +33,19 @@ const exercise = (
   plannedReps: string,
   defaultWeight: string,
   focus: string,
-): SessionExercise => ({
+): SessionExercise => {
+  const clearReps = clarifyUnilateralReps(name, plannedReps);
+  return {
   name,
   sets,
-  plannedReps,
+  plannedReps: clearReps,
   defaultWeight,
   focus,
   effortMetric: "rir",
   effortTarget: "2–4 RIR",
-  detail: `${sets} × ${plannedReps} · ${defaultWeight} kg`,
-});
+  detail: `${sets} × ${clearReps} · ${defaultWeight} kg`,
+};
+};
 
 const recoveryExercise = (name: string, sets: number, plannedReps: string, defaultWeight: string, focus: string): SessionExercise => ({
   ...exercise(name, sets, plannedReps, defaultWeight, focus),

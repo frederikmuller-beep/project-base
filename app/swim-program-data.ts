@@ -1,5 +1,6 @@
 import { twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
 import { getSwimmerStrengthPlan } from "./strength-program-data";
+import { clarifyUnilateralReps } from "./exercise-units";
 
 export type SwimProfile = "long_distance" | "middle_distance" | "sprint";
 export type StrengthProfile = SwimProfile | "recreational";
@@ -24,18 +25,21 @@ export const trainingProfileLabel = (profile: TrainingProfile | null | undefined
 
 export const swimProfileLabel = trainingProfileLabel;
 
-const swim = (name: string, sets: number, meters: number, restSeconds: number, focus: string): SessionExercise => ({
+const swim = (name: string, sets: number, meters: number, restSeconds: number, focus: string): SessionExercise => {
+  const clearReps = clarifyUnilateralReps(name, `${meters} m`);
+  return {
   name,
   sets,
-  plannedReps: `${meters} m`,
+  plannedReps: clearReps,
   defaultWeight: "0",
   focus,
   tracking: "distance",
   effortMetric: "heart_rate_zone",
   effortTarget: "Efter passets mål",
   restSeconds,
-  detail: `${sets} × ${meters} m · ${restSeconds} sek pause`,
-});
+  detail: `${sets} × ${clearReps} · ${restSeconds} sek pause`,
+};
+};
 
 type SwimSession = {
   title: string;
