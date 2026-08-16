@@ -6,6 +6,8 @@ import {
   calculateActualWorkload,
   calculatePlannedWorkload,
   estimatedOneRepMax,
+  majorLiftForExercise,
+  majorStrengthLifts,
   parseEffortRepCount,
   type AnalyticsSetLog,
   type AthleteDashboardData,
@@ -62,10 +64,12 @@ export async function GET() {
       for (const log of sessionLogs) {
         const exercise = program.exercises[log.exerciseIndex];
         if (!exercise || exercise.tracking === "distance" || (log.effortMetric ?? "rir") !== "rir") continue;
+        const majorLift = majorLiftForExercise(exercise.name);
+        if (!majorLift) continue;
         const estimate = estimatedOneRepMax(Number.parseFloat(log.weight) || 0, parseEffortRepCount(log.reps), Number.parseFloat(log.rpe) || 0);
         if (estimate <= 0) continue;
-        const current = bestInSession.get(exercise.name);
-        if (!current || estimate > current.estimated1Rm) bestInSession.set(exercise.name, { estimated1Rm: estimate, loggedAt: log.loggedAt ?? "" });
+        const current = bestInSession.get(majorLift.id);
+        if (!current || estimate > current.estimated1Rm) bestInSession.set(majorLift.id, { estimated1Rm: estimate, loggedAt: log.loggedAt ?? "" });
       }
       for (const [exercise, point] of bestInSession) {
         const list = strengthByExercise.get(exercise) ?? [];
@@ -73,10 +77,17 @@ export async function GET() {
         strengthByExercise.set(exercise, list);
       }
     }
-    const primaryStrength = [...strengthByExercise.entries()].sort((a, b) => b[1].length - a[1].length || b[1].at(-1)!.loggedAt.localeCompare(a[1].at(-1)!.loggedAt))[0];
-    let strength: AthleteDashboardData["strength"] = null;
-    if (primaryStrength) {
-      const [exercise, rawPoints] = primaryStrength;
+    const strengthExercises: AthleteDashboardData["strengthExercises"] = majorStrengthLifts.map((lift) => {
+      const rawPoints = strengthByExercise.get(lift.id) ?? [];
+      if (rawPoints.length === 0) return {
+        id: lift.id,
+        exercise: lift.label,
+        currentEstimated1Rm: null,
+        bestEstimated1Rm: null,
+        relativeIndex: null,
+        changePercent: null,
+        points: [],
+      };
       const baseline = rawPoints[0].estimated1Rm;
       const points = rawPoints.map((point) => ({
         label: point.label,
@@ -84,15 +95,16 @@ export async function GET() {
         relativeIndex: Math.round((point.estimated1Rm / baseline) * 100),
       }));
       const current = rawPoints.at(-1)!.estimated1Rm;
-      strength = {
-        exercise,
+      return {
+        id: lift.id,
+        exercise: lift.label,
         currentEstimated1Rm: Math.round(current * 10) / 10,
         bestEstimated1Rm: Math.round(Math.max(...rawPoints.map((point) => point.estimated1Rm)) * 10) / 10,
         relativeIndex: Math.round((current / baseline) * 100),
         changePercent: Math.round(((current / baseline - 1) * 100) * 10) / 10,
         points,
       };
-    }
+    });
 
     const data: AthleteDashboardData = {
       summary: {
@@ -103,7 +115,7 @@ export async function GET() {
         completedSessions: sessions.filter((session) => session.status === "completed").length,
         plannedSessions: expectedPrograms.length,
       },
-      strength,
+      strengthExercises,
     };
     return Response.json(data, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {

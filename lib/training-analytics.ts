@@ -28,6 +28,39 @@ export type LoadSuggestion = {
   reasons: string[];
 };
 
+export const majorStrengthLifts = [
+  { id: "clean", label: "Clean", exerciseNames: ["Clean"] },
+  { id: "power-clean", label: "Power clean", exerciseNames: ["Power clean"] },
+  { id: "jerk", label: "Jerk", exerciseNames: ["Jerk"] },
+  { id: "clean-and-jerk", label: "Clean & Jerk", exerciseNames: ["Clean & Jerk", "Clean + Jerk", "Clean+Jerk"] },
+  { id: "snatch", label: "Snatch", exerciseNames: ["Snatch"] },
+  { id: "power-snatch", label: "Power snatch", exerciseNames: ["Power snatch"] },
+  { id: "front-squat", label: "Front squat", exerciseNames: ["Front squat"] },
+  { id: "squat", label: "Squat", exerciseNames: ["Back squat", "Squat"] },
+  { id: "deadlift", label: "Dødløft", exerciseNames: ["Dødløft", "Deadlift"] },
+  { id: "bench-press", label: "Bænkpres", exerciseNames: ["Bænkpres", "Bench press"] },
+  { id: "overhead-press", label: "Overhead press", exerciseNames: ["Overhead press", "Strict press"] },
+] as const;
+
+export type MajorStrengthLift = (typeof majorStrengthLifts)[number];
+
+const normalizeExerciseName = (value: string) => value.trim().toLocaleLowerCase("da-DK").replaceAll("&", "+").replace(/\s*\+\s*/g, "+");
+
+export const majorLiftForExercise = (exerciseName: string): MajorStrengthLift | null => {
+  const normalized = normalizeExerciseName(exerciseName);
+  return majorStrengthLifts.find((lift) => lift.exerciseNames.some((name) => normalizeExerciseName(name) === normalized)) ?? null;
+};
+
+export type StrengthExerciseMetric = {
+  id: MajorStrengthLift["id"];
+  exercise: string;
+  currentEstimated1Rm: number | null;
+  bestEstimated1Rm: number | null;
+  relativeIndex: number | null;
+  changePercent: number | null;
+  points: Array<{ label: string; estimated1Rm: number; relativeIndex: number }>;
+};
+
 export type AthleteDashboardData = {
   summary: {
     expectedVolumeKg: number;
@@ -37,14 +70,7 @@ export type AthleteDashboardData = {
     completedSessions: number;
     plannedSessions: number;
   };
-  strength: {
-    exercise: string;
-    currentEstimated1Rm: number;
-    bestEstimated1Rm: number;
-    relativeIndex: number;
-    changePercent: number;
-    points: Array<{ label: string; estimated1Rm: number; relativeIndex: number }>;
-  } | null;
+  strengthExercises: StrengthExerciseMetric[];
 };
 
 export const parseEffortRepCount = (value: string) =>

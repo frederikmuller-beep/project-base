@@ -197,9 +197,16 @@ test("builds a private athlete dashboard from persisted training data", async ()
   assert.match(dashboard, /FAKTISK INTENSITET/);
   assert.match(dashboard, /RELATIV STYRKE/);
   assert.match(dashboard, /Første registrering = 100/);
+  assert.match(dashboard, /strengthExercises\.map/);
+  assert.match(dashboard, /Ingen data for/);
   assert.match(analyticsRoute, /getTesterId/);
   assert.match(analyticsRoute, /private, no-store/);
+  assert.match(analyticsRoute, /majorLiftForExercise/);
+  assert.match(analyticsRoute, /majorStrengthLifts\.map/);
   assert.match(analytics, /estimatedOneRepMax/);
+  for (const lift of ["Clean", "Power clean", "Jerk", "Clean & Jerk", "Snatch", "Power snatch", "Front squat", "Squat", "Dødløft", "Bænkpres", "Overhead press"]) {
+    assert.match(analytics, new RegExp(lift.replace(/[&]/g, "\\&")));
+  }
   assert.match(analytics, /readinessScore !== null && readinessScore >= 72/);
   assert.match(analytics, /lastTwo\.every\(\(set\) => set\.techniqueQuality === "good"\)/);
   assert.match(exportRoute, /technique_quality/);

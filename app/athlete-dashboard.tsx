@@ -1,13 +1,20 @@
+"use client";
+
+import { useState } from "react";
 import type { AthleteDashboardData } from "../lib/training-analytics";
 
 const formatKg = (value: number) => `${value.toLocaleString("da-DK")} kg`;
 const formatIntensity = (value: number | null) => value === null ? "—" : `${value.toLocaleString("da-DK", { maximumFractionDigits: 1 })} %`;
 
 export function AthleteDashboard({ data, loading, onBack }: { data: AthleteDashboardData | null; loading: boolean; onBack: () => void }) {
+  const [selectedStrengthId, setSelectedStrengthId] = useState<string | null>(null);
   const volumeProgress = data && data.summary.expectedVolumeKg > 0
     ? Math.min(100, Math.round((data.summary.actualVolumeKg / data.summary.expectedVolumeKg) * 100))
     : 0;
-  const maxPoint = Math.max(1, ...(data?.strength?.points.map((point) => point.estimated1Rm) ?? [1]));
+  const selectedStrength = data?.strengthExercises.find((strength) => strength.id === selectedStrengthId)
+    ?? data?.strengthExercises.find((strength) => strength.points.length > 0)
+    ?? data?.strengthExercises[0];
+  const maxPoint = Math.max(1, ...(selectedStrength?.points.map((point) => point.estimated1Rm) ?? [1]));
 
   return (
     <section className="screen athlete-dashboard enter">
@@ -35,18 +42,31 @@ export function AthleteDashboard({ data, loading, onBack }: { data: AthleteDashb
         </div>
 
         <div className="dashboard-section-title"><span>RELATIV STYRKE</span><h2>Udvikling i estimeret 1RM</h2></div>
-        {data.strength ? (
+        <div className="strength-lift-selector" aria-label="Vælg hovedøvelse">
+          {data.strengthExercises.map((strength) => (
+            <button
+              className={selectedStrength?.id === strength.id ? "active" : ""}
+              key={strength.id}
+              onClick={() => setSelectedStrengthId(strength.id)}
+              type="button"
+            >
+              <strong>{strength.exercise}</strong>
+              <span>{strength.currentEstimated1Rm === null ? "Ingen data" : `${strength.currentEstimated1Rm.toLocaleString("da-DK", { maximumFractionDigits: 1 })} kg`}</span>
+            </button>
+          ))}
+        </div>
+        {selectedStrength && selectedStrength.points.length > 0 && selectedStrength.currentEstimated1Rm !== null && selectedStrength.changePercent !== null && selectedStrength.relativeIndex !== null ? (
           <article className="strength-history-card">
             <div className="strength-history-head">
-              <div><span>{data.strength.exercise}</span><strong>{data.strength.currentEstimated1Rm.toLocaleString("da-DK", { maximumFractionDigits: 1 })} kg</strong><small>Aktuelt estimeret 1RM</small></div>
-              <b className={data.strength.changePercent >= 0 ? "positive" : "negative"}>{data.strength.changePercent >= 0 ? "+" : ""}{data.strength.changePercent.toLocaleString("da-DK", { maximumFractionDigits: 1 })}%</b>
+              <div><span>{selectedStrength.exercise}</span><strong>{selectedStrength.currentEstimated1Rm.toLocaleString("da-DK", { maximumFractionDigits: 1 })} kg</strong><small>Aktuelt estimeret 1RM</small></div>
+              <b className={selectedStrength.changePercent >= 0 ? "positive" : "negative"}>{selectedStrength.changePercent >= 0 ? "+" : ""}{selectedStrength.changePercent.toLocaleString("da-DK", { maximumFractionDigits: 1 })}%</b>
             </div>
-            <div className="strength-history-chart" aria-label={`Historisk estimeret 1RM for ${data.strength.exercise}`}>
-              {data.strength.points.map((point, index) => <div key={`${point.label}-${index}`}><i style={{ height: `${Math.max(12, (point.estimated1Rm / maxPoint) * 100)}%` }} /><span>{point.label}</span></div>)}
+            <div className="strength-history-chart" aria-label={`Historisk estimeret 1RM for ${selectedStrength.exercise}`}>
+              {selectedStrength.points.map((point, index) => <div key={`${point.label}-${index}`}><i style={{ height: `${Math.max(12, (point.estimated1Rm / maxPoint) * 100)}%` }} /><span>{point.label}</span></div>)}
             </div>
-            <div className="strength-index-row"><span>Relativt styrkeindeks</span><strong>{data.strength.relativeIndex}</strong><small>Første registrering = 100</small></div>
+            <div className="strength-index-row"><span>Relativt styrkeindeks</span><strong>{selectedStrength.relativeIndex}</strong><small>Første registrering = 100</small></div>
           </article>
-        ) : <div className="dashboard-empty compact"><strong>Styrkehistorikken starter snart</strong><span>Log mindst ét belastet styrkesæt med reps og RIR.</span></div>}
+        ) : <div className="dashboard-empty compact"><strong>Ingen data for {selectedStrength?.exercise ?? "øvelsen"} endnu</strong><span>Historikken starter, når du logger et belastet sæt med reps og RIR.</span></div>}
 
         <article className="dashboard-method-note"><strong>Sådan regner BASE</strong><p>Estimeret 1RM beregnes med Epley-formlen ud fra vægt, gentagelser og registreret RIR. Tallene er træningsstøtte og ikke en maksimaltest.</p></article>
       </>}

@@ -5,9 +5,20 @@ import {
   calculateActualWorkload,
   calculatePlannedWorkload,
   estimatedOneRepMax,
+  majorLiftForExercise,
+  majorStrengthLifts,
   parseEffortRepCount,
   parseRepCount,
 } from "../lib/training-analytics.ts";
+
+test("limits strength history to the eleven comparable major lifts", () => {
+  assert.equal(majorStrengthLifts.length, 11);
+  assert.equal(majorLiftForExercise("Overhead carry"), null);
+  assert.equal(majorLiftForExercise("Strict press")?.label, "Overhead press");
+  assert.equal(majorLiftForExercise("Back squat")?.label, "Squat");
+  assert.equal(majorLiftForExercise("Clean+Jerk")?.label, "Clean & Jerk");
+  assert.equal(majorLiftForExercise("Snatch-grip deadlift"), null);
+});
 
 const program = {
   programId: "test",
