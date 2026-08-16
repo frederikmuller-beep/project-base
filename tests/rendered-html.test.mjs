@@ -51,6 +51,8 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.equal((programData.match(/week: 2, day/g) ?? []).length, 7);
   assert.match(programData, /w1-competition-focus/);
   assert.match(programData, /w2-test-review/);
+  assert.match(programData, /Bulgarian split squat", 3, "8 pr\. ben"/);
+  assert.match(strengthProgramData, /Bulgarian split squat", 3, "8 pr\. ben"/);
   assert.match(swimProgramData, /long_distance: makePlan/);
   assert.match(swimProgramData, /middle_distance: makePlan/);
   assert.match(swimProgramData, /sprint: makePlan/);

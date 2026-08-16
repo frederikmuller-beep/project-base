@@ -148,7 +148,7 @@ export const twoWeekPlan: ProgramDay[] = [
     title: "Strength support", focus: "Robust bagkæde, trækstyrke og skulderkontrol", duration: 70,
     exercises: [
       exercise("Snatch-grip deadlift", 4, "5", "105", "Hold stangen tæt"),
-      exercise("Bulgarian split squat", 3, "8", "24", "Stabilt knæ over fod"),
+      exercise("Bulgarian split squat", 3, "8 pr. ben", "24", "Stabilt knæ over fod"),
       exercise("Pendlay row", 4, "6", "65", "Start hvert løft fra gulvet"),
       exercise("Overhead carry", 3, "25 m", "20", "Ribben ned og aktiv skulder"),
     ],

@@ -86,7 +86,7 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Box squat", category: "Squat", target: "Bagkæde · kontrol", cue: "Sæt dig kontrolleret og behold spændingen", sets: "4", reps: "5", weight: "100" },
   { name: "Anderson squat", category: "Squat", target: "Startstyrke · ben", cue: "Byg spænding før stangen forlader pins", sets: "5", reps: "3", weight: "90" },
   { name: "Split squat", category: "Squat", target: "Ensidig benstyrke · balance", cue: "Hold forreste fod stabil og torso høj", sets: "4", reps: "6", weight: "40" },
-  { name: "Bulgarian split squat", category: "Squat", target: "Ensidig styrke · stabilitet", cue: "Sænk bageste knæ kontrolleret", sets: "4", reps: "8", weight: "35" },
+  { name: "Bulgarian split squat", category: "Squat", target: "Ensidig styrke · stabilitet", cue: "Sænk bageste knæ kontrolleret", sets: "4", reps: "8 pr. ben", weight: "35" },
   { name: "Snatch high pull", category: "Træk", target: "Kraft · albueføring", cue: "Afslut benene før albuerne går op", sets: "4", reps: "4", weight: "75" },
   { name: "Clean high pull", category: "Træk", target: "Kraft · afslutning", cue: "Hold stangen tæt og afslut lodret", sets: "4", reps: "4", weight: "100" },
   { name: "Snatch pull from blocks", category: "Træk", target: "Andet træk · belastning", cue: "Start balanceret og accelerér gennem kontakten", sets: "4", reps: "3", weight: "85" },
