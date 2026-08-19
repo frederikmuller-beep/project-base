@@ -34,6 +34,8 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /Åbn dit 12-ugers program/);
   assert.match(page, /Dit program over 12 uger/);
   assert.match(page, /Array.from\(\{ length: 12 \}/);
+  assert.match(page, /selectedWeekProgression/);
+  assert.match(page, /program-phase-card/);
   assert.match(page, /weekTotals\.sessions/);
   assert.match(page, /startPlannedSession/);
   assert.match(page, /NÆSTE PROGRAM/);
@@ -55,6 +57,14 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.equal((programData.match(/week: 2, day/g) ?? []).length, 7);
   assert.match(programData, /w1-competition-focus/);
   assert.match(programData, /w2-test-review/);
+  assert.match(programData, /weekProgressions: WeekProgression\[]/);
+  assert.match(programData, /phase: "Akkumulering"/);
+  assert.match(programData, /phase: "Deload"/);
+  assert.match(programData, /phase: "Topning"/);
+  assert.match(programData, /phase: "Realisering"/);
+  assert.match(programData, /progressExercisePrescription/);
+  assert.match(programData, /loadFactor: 1\.15/);
+  assert.match(programData, /distanceFactor: 0\.6/);
   assert.match(programData, /Bulgarian split squat", 3, "8 pr\. ben"/);
   assert.match(strengthProgramData, /Bulgarian split squat", 3, "8 pr\. ben"/);
   assert.match(exerciseUnits, /"Split squat": "ben"/);
@@ -116,6 +126,7 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(programCatalog, /Array\.from\(\{ length: 500 \}/);
   assert.match(programCatalog, /durationWeeks: 12/);
   assert.match(programCatalog, /buildTemplatePlan/);
+  assert.match(programCatalog, /progressExercisePrescription/);
   for (const sport of ["athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"]) assert.match(sportCatalog, new RegExp(`id: "${sport}"`));
   assert.match(exerciseData, /name: "Bænkpres"/);
   assert.match(exerciseData, /name: "Dødløft"/);

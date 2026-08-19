@@ -7,7 +7,7 @@ import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
-import { countProgramSets, type ProgramDay, type SessionExercise } from "./program-data";
+import { countProgramSets, getWeekProgression, type ProgramDay, type SessionExercise } from "./program-data";
 import { defaultSwimProfile, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
 
 type View = "today" | "dashboard" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
@@ -111,6 +111,7 @@ export default function Home() {
   const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
   const activeToday = activePlan[0];
   const selectedWeekPlan = useMemo(() => activePlan.filter((day) => day.week === selectedWeek), [activePlan, selectedWeek]);
+  const selectedWeekProgression = getWeekProgression(selectedWeek);
   const nextProgram = useMemo(() => {
     const coachProgramIds = new Set(coachPlans.map((day) => day.programId));
     const availablePrograms = [...coachPlans, ...activePlan].filter((day) => day.programId && day.exercises.length > 0);
@@ -696,6 +697,12 @@ export default function Home() {
           <div className="program-week-picker" aria-label="Vælg programuge">
             {Array.from({ length: 12 }, (_, index) => index + 1).map((week) => <button key={week} className={selectedWeek === week ? "active" : ""} aria-pressed={selectedWeek === week} onClick={() => setSelectedWeek(week)}>Uge {week}</button>)}
           </div>
+          <article className={`program-phase-card ${selectedWeekProgression.phase === "Deload" ? "deload" : ""}`}>
+            <span>{selectedWeekProgression.phase.toLocaleUpperCase("da-DK")} · UGE {selectedWeek}</span>
+            <strong>{selectedWeekProgression.intensity}</strong>
+            <p>{selectedWeekProgression.summary}</p>
+            <small>Styrke: {selectedWeekProgression.rirTarget} · Kondition: {selectedWeekProgression.heartRateTarget}</small>
+          </article>
           {coachPlans.length > 0 && (
             <section className="coach-assigned-plans">
               <div><span>FRA DIN TRÆNER</span><strong>{coachPlans.length} tildelte pas</strong><small>Disse pas er sammensat specifikt til din testprofil.</small></div>

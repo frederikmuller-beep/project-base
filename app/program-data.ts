@@ -25,6 +25,67 @@ export type ProgramDay = {
   exercises: SessionExercise[];
   intensity?: string;
   distanceMeters?: number;
+  phase?: string;
+  progressionNote?: string;
+};
+
+export type WeekProgression = {
+  week: number;
+  phase: "Fundament" | "Akkumulering" | "Deload" | "Opbygning" | "Intensivering" | "Topning" | "Realisering";
+  loadFactor: number;
+  setDelta: number;
+  repDelta: number;
+  distanceFactor: number;
+  intensity: string;
+  rirTarget: string;
+  heartRateTarget: string;
+  summary: string;
+};
+
+export const weekProgressions: WeekProgression[] = [
+  { week: 1, phase: "Fundament", loadFactor: 1, setDelta: 0, repDelta: 0, distanceFactor: 1, intensity: "Moderat", rirTarget: "3–4 RIR", heartRateTarget: "Pulszone 2–3", summary: "Find sikre startvægte og ensartet teknik." },
+  { week: 2, phase: "Fundament", loadFactor: 1.025, setDelta: 0, repDelta: 0, distanceFactor: 1.05, intensity: "Moderat+", rirTarget: "3 RIR", heartRateTarget: "Pulszone 2–3", summary: "Lidt mere belastning uden at miste kvalitet." },
+  { week: 3, phase: "Akkumulering", loadFactor: 1.05, setDelta: 1, repDelta: 0, distanceFactor: 1.1, intensity: "Moderat · mere volumen", rirTarget: "2–3 RIR", heartRateTarget: "Pulszone 2–4", summary: "Ugens højeste arbejdsmængde bygger kapacitet." },
+  { week: 4, phase: "Deload", loadFactor: 0.9, setDelta: -1, repDelta: 0, distanceFactor: 0.7, intensity: "Let", rirTarget: "4–6 RIR", heartRateTarget: "Pulszone 1–2", summary: "Volumen og belastning sænkes for at absorbere arbejdet." },
+  { week: 5, phase: "Opbygning", loadFactor: 1.05, setDelta: 0, repDelta: 0, distanceFactor: 1.08, intensity: "Moderat+", rirTarget: "2–3 RIR", heartRateTarget: "Pulszone 2–3", summary: "Ny blok starter over det første fundament." },
+  { week: 6, phase: "Opbygning", loadFactor: 1.075, setDelta: 1, repDelta: 0, distanceFactor: 1.15, intensity: "Moderat/hård · mere volumen", rirTarget: "2 RIR", heartRateTarget: "Pulszone 2–4", summary: "Mere samlet arbejde før intensiteten stiger." },
+  { week: 7, phase: "Intensivering", loadFactor: 1.1, setDelta: 0, repDelta: -1, distanceFactor: 1.08, intensity: "Hård · kontrolleret", rirTarget: "1–3 RIR", heartRateTarget: "Pulszone 3–4", summary: "Højere belastning og færre gentagelser pr. sæt." },
+  { week: 8, phase: "Deload", loadFactor: 0.95, setDelta: -1, repDelta: 0, distanceFactor: 0.75, intensity: "Let", rirTarget: "4–6 RIR", heartRateTarget: "Pulszone 1–2", summary: "Trætheden sænkes før den specifikke blok." },
+  { week: 9, phase: "Intensivering", loadFactor: 1.1, setDelta: -1, repDelta: -1, distanceFactor: 1, intensity: "Hård · lavere volumen", rirTarget: "1–3 RIR", heartRateTarget: "Pulszone 3–4", summary: "Mere specifik intensitet med færre arbejdssæt." },
+  { week: 10, phase: "Intensivering", loadFactor: 1.125, setDelta: -1, repDelta: -1, distanceFactor: 1.05, intensity: "Hård", rirTarget: "1–2 RIR", heartRateTarget: "Pulszone 3–4", summary: "Belastningen stiger, mens volumen holdes kontrolleret." },
+  { week: 11, phase: "Topning", loadFactor: 1.15, setDelta: -1, repDelta: -2, distanceFactor: 0.9, intensity: "Høj kvalitet", rirTarget: "1–2 RIR", heartRateTarget: "Pulszone 4", summary: "De tungeste eller hurtigste kvalitetsarbejder i forløbet." },
+  { week: 12, phase: "Realisering", loadFactor: 1.075, setDelta: -2, repDelta: -2, distanceFactor: 0.6, intensity: "Lav volumen · friskhed", rirTarget: "2–4 RIR", heartRateTarget: "Pulszone 2–3", summary: "Volumen falder markant, så udviklingen kan vurderes frisk." },
+];
+
+export const getWeekProgression = (week: number) => weekProgressions[Math.min(11, Math.max(0, week - 1))];
+
+const roundedLoad = (weight: number) => {
+  const increment = weight < 40 ? 0.5 : 2.5;
+  return Math.round(weight / increment) * increment;
+};
+
+const adjustStrengthReps = (reps: string, delta: number) => {
+  if (delta === 0 || reps.includes("+") || /\b(?:m|min|sek|runde)\b/i.test(reps)) return reps;
+  const match = reps.match(/^(\d+)(.*)$/);
+  if (!match) return reps;
+  return `${Math.max(1, Number(match[1]) + delta)}${match[2]}`;
+};
+
+export const progressExercisePrescription = (exercise: SessionExercise, week: number): SessionExercise => {
+  const progression = getWeekProgression(week);
+  const sets = Math.max(1, exercise.sets + progression.setDelta);
+  if (exercise.tracking === "distance") {
+    const distanceMatch = exercise.plannedReps.match(/^(\d+(?:\.\d+)?)\s*m$/i);
+    const baseMeters = Number(distanceMatch?.[1] ?? 0);
+    const increment = baseMeters < 25 ? 5 : 25;
+    const meters = baseMeters > 0 ? Math.max(increment, Math.round((baseMeters * progression.distanceFactor) / increment) * increment) : 0;
+    const plannedReps = meters > 0 ? `${meters} m` : exercise.plannedReps;
+    return { ...exercise, sets, plannedReps, effortTarget: progression.heartRateTarget, detail: `${sets} × ${plannedReps} · ${progression.heartRateTarget.toLocaleLowerCase("da-DK")}` };
+  }
+  const numericWeight = Number.parseFloat(exercise.defaultWeight);
+  const defaultWeight = Number.isFinite(numericWeight) && numericWeight > 0 ? String(roundedLoad(numericWeight * progression.loadFactor)) : exercise.defaultWeight;
+  const plannedReps = adjustStrengthReps(exercise.plannedReps, progression.repDelta);
+  return { ...exercise, sets, plannedReps, defaultWeight, restSeconds: (exercise.restSeconds ?? 75) + (week >= 7 && week !== 8 && week !== 12 ? 15 : 0), effortTarget: progression.rirTarget, detail: `${sets} × ${plannedReps} · ${defaultWeight} kg · ${progression.rirTarget}` };
 };
 
 const exercise = (
@@ -177,13 +238,24 @@ const dateForWeekday = (week: number, weekday: number) => {
 export const extendPlanToTwelveWeeks = (basePlan: ProgramDay[]): ProgramDay[] => Array.from({ length: 12 }, (_, weekIndex) => {
   const week = weekIndex + 1;
   const sourceWeek = ((week - 1) % 2) + 1;
-  return basePlan.filter((day) => day.week === sourceWeek).map((day, weekday) => ({
-    ...day,
-    week,
-    date: dateForWeekday(week, weekday),
-    status: week === 1 && weekday === 0 ? "today" as const : day.status === "today" ? "planned" as const : day.status,
-    programId: !day.programId || week <= 2 ? day.programId : `${day.programId}-w${week}`,
-  }));
+  const progression = getWeekProgression(week);
+  return basePlan.filter((day) => day.week === sourceWeek).map((day, weekday) => {
+    const exercises = day.status === "recovery" ? day.exercises : day.exercises.map((exercise) => progressExercisePrescription(exercise, week));
+    const distanceMeters = exercises.some((exercise) => exercise.tracking === "distance") ? exercises.reduce((total, exercise) => total + (exercise.tracking === "distance" ? exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0) : 0), 0) : day.distanceMeters;
+    return {
+      ...day,
+      week,
+      date: dateForWeekday(week, weekday),
+      status: week === 1 && weekday === 0 ? "today" as const : day.status === "today" ? "planned" as const : day.status,
+      programId: !day.programId || week <= 2 ? day.programId : `${day.programId}-w${week}`,
+      focus: day.status === "rest" ? day.focus : `${progression.phase} · ${day.focus}`,
+      intensity: day.status === "rest" ? day.intensity : progression.intensity,
+      phase: progression.phase,
+      progressionNote: progression.summary,
+      exercises,
+      distanceMeters,
+    };
+  });
 }).flat();
 
 export const twoWeekPlan: ProgramDay[] = extendPlanToTwelveWeeks(originalTwoWeekPlan);

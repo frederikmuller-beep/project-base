@@ -1,5 +1,5 @@
 import { clarifyUnilateralReps } from "./exercise-units";
-import type { ProgramDay, SessionExercise } from "./program-data";
+import { getWeekProgression, progressExercisePrescription, type ProgramDay, type SessionExercise } from "./program-data";
 import { sportProfiles, type ContentVisibility, type Difficulty, type TrainingProfile } from "./sport-catalog";
 
 export type ProgramTemplate = {
@@ -80,15 +80,15 @@ const strengthSeeds: Record<TrainingProfile, Array<[string, string, string]>> = 
 
 const sessionExercise = (name: string, reps: string, weight: string, week: number): SessionExercise => {
   const plannedReps = clarifyUnilateralReps(name, reps);
-  const adjustedWeight = String(Math.max(0, Number(weight) + Math.floor((week - 1) / 2) * (Number(weight) > 0 ? 2.5 : 0)));
-  return { name, sets: week % 4 === 0 ? 3 : 4, plannedReps, defaultWeight: adjustedWeight, focus: "Kontrolleret kvalitet med 2–4 gentagelser i reserve", tracking: "load", restSeconds: 75, effortMetric: "rir", effortTarget: "2–4 RIR", detail: `${week % 4 === 0 ? 3 : 4} × ${plannedReps} · ${adjustedWeight} kg` };
+  return progressExercisePrescription({ name, sets: 4, plannedReps, defaultWeight: weight, focus: "Kontrolleret kvalitet med den planlagte indsats", tracking: "load", restSeconds: 75, effortMetric: "rir", effortTarget: "3–4 RIR", detail: "" }, week);
 };
 
 export const buildGenericTrainingPlan = (profile: TrainingProfile): ProgramDay[] => Array.from({ length: 12 }, (_, weekIndex) => {
   const week = weekIndex + 1;
-  return [0, 2, 5].map((weekday, sessionIndex) => {
+  const progression = getWeekProgression(week);
+  return [0, 2, 5].map((_, sessionIndex) => {
     const day = ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex];
-    const exercises = strengthSeeds[profile].map(([name, reps, weight], exerciseIndex) => sessionExercise(name, reps, weight, week + exerciseIndex));
+    const exercises = strengthSeeds[profile].map(([name, reps, weight]) => sessionExercise(name, reps, weight, week));
     return {
       programId: `base-${profile}-w${week}-s${sessionIndex + 1}`,
       week,
@@ -96,9 +96,11 @@ export const buildGenericTrainingPlan = (profile: TrainingProfile): ProgramDay[]
       date: `UGE ${week}`,
       status: week === 1 && sessionIndex === 0 ? "today" as const : "planned" as const,
       title: `${sportProfiles.find((sport) => sport.id === profile)?.label} · ${["fundament", "kapacitet", "kvalitet"][sessionIndex]}`,
-      focus: "Sportsrelevant styrke på land; direkte løbe-, vand- og shuttlepas styres indtil videre af træneren",
+      focus: `${progression.phase} · Sportsrelevant styrke på land; direkte løbe-, vand- og shuttlepas styres af træneren`,
       duration: 50 + sessionIndex * 5,
-      intensity: week % 4 === 0 ? "Let/moderat" : "Moderat",
+      intensity: progression.intensity,
+      phase: progression.phase,
+      progressionNote: progression.summary,
       exercises,
     };
   });
@@ -117,10 +119,11 @@ export const buildTemplatePlan = (id: string) => {
       : "3000 m intervalløb";
     return Array.from({ length: 12 }, (_, weekIndex) => [0, 2, 5].map((_, sessionIndex): ProgramDay => {
       const week = weekIndex + 1;
-      const meters = directExercise === "10-yard sprint" ? 10 : directExercise === "Suicide runs" ? 120 : 500 + Math.floor(weekIndex / 3) * 250;
-      const sets = week % 4 === 0 ? 4 : 6;
-      const exercise: SessionExercise = { name: directExercise, sets, plannedReps: `${meters} m`, defaultWeight: "0", focus: template.focus, tracking: "distance", restSeconds: 60, effortMetric: "heart_rate_zone", effortTarget: "Pulszone efter trænerens plan", detail: `${sets} × ${meters} m` };
-      return { programId: `${template.id}-w${week}-s${sessionIndex + 1}`, week, day: ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex], date: `UGE ${week}`, status: week === 1 && sessionIndex === 0 ? "today" : "planned", title: template.title, focus: template.goal, duration: 45 + sessionIndex * 10, intensity: "Trænerstyret", distanceMeters: sets * meters, exercises: [exercise] };
+      const baseMeters = directExercise === "10-yard sprint" ? 10 : directExercise === "Suicide runs" ? 120 : directExercise === "Cykelinterval" ? 2000 : directExercise === "Brick-interval" ? 1000 : 500;
+      const progression = getWeekProgression(week);
+      const exercise = progressExercisePrescription({ name: directExercise, sets: 6, plannedReps: `${baseMeters} m`, defaultWeight: "0", focus: template.focus, tracking: "distance", restSeconds: 60, effortMetric: "heart_rate_zone", effortTarget: "Pulszone 2–3", detail: "" }, week);
+      const distanceMeters = exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0);
+      return { programId: `${template.id}-w${week}-s${sessionIndex + 1}`, week, day: ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex], date: `UGE ${week}`, status: week === 1 && sessionIndex === 0 ? "today" : "planned", title: template.title, focus: `${progression.phase} · ${template.goal}`, duration: 45 + sessionIndex * 10, intensity: progression.intensity, phase: progression.phase, progressionNote: progression.summary, distanceMeters, exercises: [exercise] };
     })).flat();
   }
   return buildGenericTrainingPlan(template.sportId).map((day) => ({ ...day, programId: `${template.id}-${day.programId?.split("-").slice(-2).join("-")}`, title: template.title, focus: template.goal }));
