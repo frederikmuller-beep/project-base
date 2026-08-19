@@ -15,7 +15,7 @@ export type SessionExercise = {
 
 export type ProgramDay = {
   programId: string | null;
-  week: 1 | 2;
+  week: number;
   day: string;
   date: string;
   status: "today" | "planned" | "recovery" | "rest";
@@ -58,7 +58,7 @@ const recoveryCardio = (name: string, plannedReps: string, focus: string): Sessi
   detail: `${plannedReps} · pulszone 1–2`,
 });
 
-export const twoWeekPlan: ProgramDay[] = [
+const originalTwoWeekPlan: ProgramDay[] = [
   {
     programId: "w1-competition-focus", week: 1, day: "MANDAG", date: "3. AUG", status: "today",
     title: "Competition focus", focus: "Teknisk kvalitet under moderat belastning", duration: 80,
@@ -168,6 +168,26 @@ export const twoWeekPlan: ProgramDay[] = [
     ],
   },
 ];
+
+const dateForWeekday = (week: number, weekday: number) => {
+  const date = new Date(Date.UTC(2026, 7, 3 + (week - 1) * 7 + weekday));
+  return `${date.getUTCDate()}. ${new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" }).format(date).replace(".", "").toLocaleUpperCase("da-DK")}`;
+};
+
+export const extendPlanToTwelveWeeks = (basePlan: ProgramDay[]): ProgramDay[] => Array.from({ length: 12 }, (_, weekIndex) => {
+  const week = weekIndex + 1;
+  const sourceWeek = ((week - 1) % 2) + 1;
+  return basePlan.filter((day) => day.week === sourceWeek).map((day, weekday) => ({
+    ...day,
+    week,
+    date: dateForWeekday(week, weekday),
+    status: week === 1 && weekday === 0 ? "today" as const : day.status === "today" ? "planned" as const : day.status,
+    programId: !day.programId || week <= 2 ? day.programId : `${day.programId}-w${week}`,
+  }));
+}).flat();
+
+export const twoWeekPlan: ProgramDay[] = extendPlanToTwelveWeeks(originalTwoWeekPlan);
+export const twelveWeekPlan = twoWeekPlan;
 
 export const todayProgram = twoWeekPlan[0];
 

@@ -13,8 +13,7 @@ import {
   type AthleteDashboardData,
 } from "../../../../lib/training-analytics";
 import { getTesterId } from "../../../../lib/tester-session";
-import { getProgram, twoWeekPlan } from "../../../program-data";
-import { getStrengthProgram, getSwimmerStrengthPlan } from "../../../strength-program-data";
+import { getTrainingPlan, getTrainingProgram } from "../../../swim-program-data";
 
 const unavailableMessage = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
@@ -41,12 +40,12 @@ export async function GET() {
       : [];
     const coachPrograms = coachRows.map(coachPlanToProgramDay);
     const coachProgramMap = new Map(coachPrograms.map((program) => [program.programId, program]));
-    const staticPrograms = participant.trainingProfile === "weightlifting" ? twoWeekPlan : getSwimmerStrengthPlan(participant.trainingProfile);
+    const staticPrograms = getTrainingPlan(participant.trainingProfile);
     const activeCoachProgramIds = new Set(coachRows.filter((row) => row.status === "active").map((row) => row.id));
     const expectedPrograms = [...staticPrograms.filter((program) => program.programId && program.exercises.length > 0), ...coachPrograms.filter((program) => program.programId && activeCoachProgramIds.has(program.programId) && program.exercises.length > 0)];
 
     const sessionData = sessions.flatMap((session) => {
-      const program = participant.trainingProfile === "weightlifting" ? getProgram(session.programId) : getStrengthProgram(session.programId);
+      const program = getTrainingProgram(participant.trainingProfile, session.programId);
       const resolvedProgram = program ?? coachProgramMap.get(session.programId);
       if (!resolvedProgram) return [];
       return [{

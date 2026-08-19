@@ -1,5 +1,5 @@
-import type { ProgramDay, SessionExercise } from "./program-data";
-import type { StrengthProfile } from "./swim-program-data";
+import { extendPlanToTwelveWeeks, type ProgramDay, type SessionExercise } from "./program-data";
+import type { StrengthProfile } from "./sport-catalog";
 import { clarifyUnilateralReps } from "./exercise-units";
 
 const strength = (name: string, sets: number, reps: string, weight: string, restSeconds: number, focus: string): SessionExercise => {
@@ -87,10 +87,10 @@ const recreationalStrength: StrengthSession[] = [
 ];
 
 export const swimmerStrengthPlans: Record<StrengthProfile, ProgramDay[]> = {
-  long_distance: makeStrengthPlan("long_distance", longDistanceStrength),
-  middle_distance: makeStrengthPlan("middle_distance", middleDistanceStrength),
-  sprint: makeStrengthPlan("sprint", sprintStrength),
-  recreational: makeStrengthPlan("recreational", recreationalStrength),
+  long_distance: extendPlanToTwelveWeeks(makeStrengthPlan("long_distance", longDistanceStrength)),
+  middle_distance: extendPlanToTwelveWeeks(makeStrengthPlan("middle_distance", middleDistanceStrength)),
+  sprint: extendPlanToTwelveWeeks(makeStrengthPlan("sprint", sprintStrength)),
+  recreational: extendPlanToTwelveWeeks(makeStrengthPlan("recreational", recreationalStrength)),
 };
 
 export const getSwimmerStrengthPlan = (profile: StrengthProfile) => swimmerStrengthPlans[profile];

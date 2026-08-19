@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Indtast dit tester-ID, fx A1 eller T1." }, { status: 400 });
   }
   if (!isTrainingProfile(payload.trainingProfile)) {
-    return Response.json({ error: "Vælg Vægtløftning, Langdistance, Mellemdistance, Sprint eller Motionist." }, { status: 400 });
+    return Response.json({ error: "Vælg en af sportsprofilerne i BASE." }, { status: 400 });
   }
 
   await setTesterId(testerId);

@@ -2,8 +2,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { coachTrainingPlans, testParticipants, trainingSessions, trainingSetLogs } from "../../../db/schema";
 import { coachPlanToProgramDay } from "../../../lib/coach-plans";
-import { countProgramSets, getProgram } from "../../program-data";
-import { getStrengthProgram } from "../../strength-program-data";
+import { countProgramSets } from "../../program-data";
+import { getTrainingProgram } from "../../swim-program-data";
 import { getTesterId } from "../../../lib/tester-session";
 import { buildLoadSuggestion, type TechniqueQuality } from "../../../lib/training-analytics";
 
@@ -87,18 +87,13 @@ export async function POST(request: Request) {
     if (!participant?.trainingProfile) {
       return Response.json({ error: "Vælg din træningsprofil før du starter passet." }, { status: 400 });
     }
-    const staticProgram = payload.programId
-      ? participant.trainingProfile === "weightlifting" ? getProgram(payload.programId) : getStrengthProgram(payload.programId)
-      : undefined;
+    const staticProgram = payload.programId ? getTrainingProgram(participant.trainingProfile, payload.programId) : undefined;
     const [coachPlan] = payload.programId && !staticProgram
       ? await db.select().from(coachTrainingPlans).where(and(eq(coachTrainingPlans.id, payload.programId), eq(coachTrainingPlans.testerId, testerId))).limit(1)
       : [];
     const program = staticProgram ?? (coachPlan ? coachPlanToProgramDay(coachPlan) : undefined);
 
-    const matchesStaticProfile = participant.trainingProfile === "weightlifting"
-      ? Boolean(program && getProgram(program.programId ?? ""))
-      : Boolean(program?.programId?.startsWith(`strength-${participant.trainingProfile}-`));
-    const matchesProfile = matchesStaticProfile || Boolean(coachPlan && coachPlan.testerId === testerId);
+    const matchesProfile = Boolean(staticProgram) || Boolean(coachPlan && coachPlan.testerId === testerId);
     if (!program || !program.programId || !matchesProfile || program.exercises.length === 0) {
       return Response.json({ error: "Vælg et gyldigt planlagt pas." }, { status: 400 });
     }

@@ -92,6 +92,7 @@ export default function Home() {
   const [testerId, setTesterId] = useState<string | null>(null);
   const [trainingProfile, setTrainingProfile] = useState<TrainingProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<TrainingProfile>(defaultSwimProfile);
+  const [selectedWeek, setSelectedWeek] = useState(1);
   const [testerInput, setTesterInput] = useState("");
   const [identityLoading, setIdentityLoading] = useState(true);
   const [identityError, setIdentityError] = useState("");
@@ -109,6 +110,7 @@ export default function Home() {
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
   const activeToday = activePlan[0];
+  const selectedWeekPlan = useMemo(() => activePlan.filter((day) => day.week === selectedWeek), [activePlan, selectedWeek]);
   const nextProgram = useMemo(() => {
     const coachProgramIds = new Set(coachPlans.map((day) => day.programId));
     const availablePrograms = [...coachPlans, ...activePlan].filter((day) => day.programId && day.exercises.length > 0);
@@ -173,7 +175,7 @@ export default function Home() {
     tracking: exercise.format,
   })), [extraDay]);
   const athleteExerciseLibrary = useMemo(
-    () => exerciseLibrary.filter((exercise) => exercise.category !== "Svømning"),
+    () => exerciseLibrary.filter((exercise) => exercise.visibility !== "coach_only"),
     [],
   );
   const libraryCategories = useMemo<LibraryCategory[]>(
@@ -609,7 +611,7 @@ export default function Home() {
 
           <button className="week-entry" onClick={() => setView("week")}>
             <span className="week-entry-date"><strong>2</strong><small>UGER</small></span>
-            <span><strong>Åbn testperiodens programmer</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
+            <span><strong>Åbn dit 12-ugers program</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
             <b>→</b>
           </button>
 
@@ -624,7 +626,7 @@ export default function Home() {
             ))}
           </div></>}
           <button className="library-link" onClick={() => setView("library")}>
-            <span><strong>Udforsk styrkebiblioteket</strong><small>{athleteExerciseLibrary.length} øvelser · {libraryCategories.length - 1} kategorier</small></span>
+            <span><strong>Udforsk øvelsesbiblioteket</strong><small>{exerciseLibrary.length.toLocaleString("da-DK")} i BASE · {athleteExerciseLibrary.length.toLocaleString("da-DK")} åbne i testen</small></span>
             <b>→</b>
           </button>
           {extraDay.length === 0 ? (
@@ -658,14 +660,14 @@ export default function Home() {
       {view === "week" && (
         <section className="screen enter">
           <button className="back" onClick={() => setView("today")}>← Tilbage</button>
-          <p className="eyebrow">{activeProfile === "weightlifting" ? "TESTPERIODE · 3.–16. AUG" : "TESTPERIODE · 11.–24. AUG"}</p>
-          <h1>Dine næste to uger.</h1>
+          <p className="eyebrow">12-UGERS TESTFORLØB · UGE {selectedWeek}</p>
+          <h1>Dit program over 12 uger.</h1>
           <p className="lede">Åbn hvert planlagt pas, udfør alle sæt og fortsæt senere uden at miste din fremdrift.</p>
           <article className={testerId ? "tester-card connected" : "tester-card"}>
             {testerId && trainingProfile ? (
               <>
                 <span className="tester-check">✓</span>
-                <div><strong>{testerId} · {trainingProfileLabel(trainingProfile)}</strong><small>Dit to-ugers program og alle sæt gemmes på testprofilen.</small></div>
+                <div><strong>{testerId} · {trainingProfileLabel(trainingProfile)}</strong><small>Dit 12-ugers program og alle sæt gemmes på testprofilen.</small></div>
                 <button onClick={disconnectTester}>Skift</button>
               </>
             ) : (
@@ -691,6 +693,9 @@ export default function Home() {
             <div><strong>{weekTotals.minutes} min</strong><span>planlagt styrketid</span></div>
             <div><strong>{trainingProfileLabel(activeProfile)}</strong><span>profil</span></div>
           </article>
+          <div className="program-week-picker" aria-label="Vælg programuge">
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((week) => <button key={week} className={selectedWeek === week ? "active" : ""} aria-pressed={selectedWeek === week} onClick={() => setSelectedWeek(week)}>Uge {week}</button>)}
+          </div>
           {coachPlans.length > 0 && (
             <section className="coach-assigned-plans">
               <div><span>FRA DIN TRÆNER</span><strong>{coachPlans.length} tildelte pas</strong><small>Disse pas er sammensat specifikt til din testprofil.</small></div>
@@ -706,7 +711,7 @@ export default function Home() {
             </section>
           )}
           <div className="week-list">
-            {activePlan.map((day) => {
+            {selectedWeekPlan.map((day) => {
               const dayProgress = day.programId ? progress[day.programId] : undefined;
               const daySets = countProgramSets(day);
               return (
@@ -764,8 +769,8 @@ export default function Home() {
           <h1>Variation med et formål.</h1>
           <p className="lede">Hver variation er koblet til et træningsmål og et enkelt teknisk fokus.</p>
           <div className="library-summary">
-            <div><strong>{athleteExerciseLibrary.length}</strong><span>øvelser</span></div>
-            <div><strong>{libraryCategories.length - 1}</strong><span>kategorier</span></div>
+            <div><strong>{exerciseLibrary.length.toLocaleString("da-DK")}</strong><span>i BASE</span></div>
+            <div><strong>{athleteExerciseLibrary.length.toLocaleString("da-DK")}</strong><span>åbne i testen</span></div>
             <div><strong>{Object.keys(exerciseVideos).length}</strong><span>testvideoer</span></div>
           </div>
           <button className="swim-strength-index" onClick={() => setLibraryCategory("Svømmestyrke")}>
@@ -797,13 +802,13 @@ export default function Home() {
             <small className="library-result-count">{filteredExercises.length} øvelser vist</small>
           </div>
           <div className="library-list">
-            {filteredExercises.map((exercise, index) => {
+            {filteredExercises.slice(0, 120).map((exercise, index) => {
               const selected = extraDraft.some((item) => item.name === exercise.name);
               return (
               <article className={selected ? "library-exercise selected" : "library-exercise"} key={exercise.name}>
                 <div className="library-index">{String(index + 1).padStart(2, "0")}</div>
                 <div className="library-content">
-                  <span className="category-pill">{exercise.category}</span>
+                  <span className="category-pill">{exercise.category} · {exercise.difficulty}</span>
                   <h3>{exercise.name}</h3>
                   <p>{exercise.target}</p>
                   <small><b>Fokus:</b> {exercise.cue}</small>

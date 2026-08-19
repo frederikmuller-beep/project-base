@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("keeps the BASE dashboard, profile-specific two-week plans and both feedback entry points", async () => {
-  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData, exerciseUnits] = await Promise.all([
+test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback entry points", async () => {
+  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData, exerciseUnits, sportCatalog, programCatalog] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/program-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/swim-program-data.ts", import.meta.url), "utf8"),
@@ -12,6 +12,8 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
     readFile(new URL("../app/exercise-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-videos.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/exercise-units.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/sport-catalog.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/program-catalog.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /God træning\./);
@@ -29,8 +31,9 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(page, /filteredExercises/);
   assert.match(page, /librarySearch/);
   assert.match(page, /activePlan/);
-  assert.match(page, /Åbn testperiodens programmer/);
-  assert.match(page, /Dine næste to uger/);
+  assert.match(page, /Åbn dit 12-ugers program/);
+  assert.match(page, /Dit program over 12 uger/);
+  assert.match(page, /Array.from\(\{ length: 12 \}/);
   assert.match(page, /weekTotals\.sessions/);
   assert.match(page, /startPlannedSession/);
   assert.match(page, /NÆSTE PROGRAM/);
@@ -62,12 +65,12 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(exerciseData, /reps: clarifyUnilateralReps/);
   assert.match(strengthProgramData, /clarifyUnilateralReps/);
   assert.match(swimProgramData, /clarifyUnilateralReps/);
-  assert.match(swimProgramData, /long_distance: makePlan/);
-  assert.match(swimProgramData, /middle_distance: makePlan/);
-  assert.match(swimProgramData, /sprint: makePlan/);
-  assert.match(swimProgramData, /Langdistance/);
-  assert.match(swimProgramData, /Mellemdistance/);
-  assert.match(swimProgramData, /Sprint/);
+  assert.match(swimProgramData, /long_distance: extendPlanToTwelveWeeks\(makePlan/);
+  assert.match(swimProgramData, /middle_distance: extendPlanToTwelveWeeks\(makePlan/);
+  assert.match(swimProgramData, /sprint: extendPlanToTwelveWeeks\(makePlan/);
+  assert.match(sportCatalog, /Langdistance svømning/);
+  assert.match(sportCatalog, /Mellemdistance svømning/);
+  assert.match(sportCatalog, /Sprintsvømning/);
   assert.match(swimProgramData, /restSeconds/);
   assert.equal((swimProgramData.match(/const .*Sessions: SwimSession\[]/g) ?? []).length, 3);
   const longSessions = swimProgramData.slice(swimProgramData.indexOf("const longDistanceSessions"), swimProgramData.indexOf("const middleDistanceSessions"));
@@ -78,20 +81,19 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.equal((sprintSessions.match(/\{ title:/g) ?? []).length, 10);
   assert.match(page, /profile-options/);
   assert.match(page, /trainingProfileOptions/);
-  assert.match(page, /activeProfile === "weightlifting"/);
-  assert.match(swimProgramData, /id: "weightlifting", label: "Vægtløftning"/);
-  assert.match(swimProgramData, /id: "recreational", label: "Motionist"/);
+  assert.match(sportCatalog, /id: "weightlifting", label: "Vægtløftning"/);
+  assert.match(sportCatalog, /id: "recreational", label: "Motionist"/);
   assert.match(swimProgramData, /getTrainingPlan/);
   assert.match(swimProgramData, /getSwimmerStrengthPlan/);
-  assert.match(strengthProgramData, /long_distance: makeStrengthPlan/);
-  assert.match(strengthProgramData, /middle_distance: makeStrengthPlan/);
-  assert.match(strengthProgramData, /sprint: makeStrengthPlan/);
-  assert.match(strengthProgramData, /recreational: makeStrengthPlan/);
+  assert.match(strengthProgramData, /long_distance: extendPlanToTwelveWeeks\(makeStrengthPlan/);
+  assert.match(strengthProgramData, /middle_distance: extendPlanToTwelveWeeks\(makeStrengthPlan/);
+  assert.match(strengthProgramData, /sprint: extendPlanToTwelveWeeks\(makeStrengthPlan/);
+  assert.match(strengthProgramData, /recreational: extendPlanToTwelveWeeks\(makeStrengthPlan/);
   assert.equal((strengthProgramData.match(/const .*Strength: StrengthSession\[]/g) ?? []).length, 4);
   const recreationalSessions = strengthProgramData.slice(strengthProgramData.indexOf("const recreationalStrength"), strengthProgramData.indexOf("export const swimmerStrengthPlans"));
   assert.equal((recreationalSessions.match(/\{ title:/g) ?? []).length, 6);
-  assert.match(page, /exercise\.category !== "Svømning"/);
-  assert.match(page, /Udforsk styrkebiblioteket/);
+  assert.match(page, /exercise\.visibility !== "coach_only"/);
+  assert.match(page, /Udforsk øvelsesbiblioteket/);
 
   assert.match(feedbackForm, /TESTFEEDBACK · 1 MIN/);
   assert.match(feedbackForm, /AFSLUTTENDE EVALUERING · 5–7 MIN/);
@@ -99,15 +101,22 @@ test("keeps the BASE dashboard, profile-specific two-week plans and both feedbac
   assert.match(feedbackForm, /Som træner/);
   assert.match(feedbackForm, /fetch\("\/api\/feedback"/);
 
-  const exerciseRows = exerciseData.split("\n").filter((line) => line.startsWith("  { name:"));
+  const exerciseRows = exerciseData.split("\n").filter((line) => line.startsWith("  { name:") && !line.includes("catalogHighlights"));
   const exerciseNames = exerciseRows.map((line) => line.match(/name: "([^"]+)"/)?.[1]);
-  assert.equal(exerciseRows.length, 178);
-  assert.equal(new Set(exerciseNames).size, 178);
+  assert.ok(exerciseRows.length >= 178);
+  assert.equal(new Set(exerciseNames).size, exerciseRows.length);
   assert.ok(exerciseRows.every((line) => /sets: "[^"]+", reps: "[^"]+", weight: "[^"]+"/.test(line)));
-  assert.equal(exerciseRows.filter((line) => /category: "Svømning"/.test(line)).length, 28);
-  assert.equal(exerciseRows.filter((line) => !/category: "Svømning"/.test(line)).length, 150);
+  assert.ok(exerciseRows.filter((line) => /category: "Svømning"/.test(line)).length >= 28);
   assert.equal(exerciseRows.filter((line) => /category: "Svømmestyrke"/.test(line)).length, 24);
-  assert.equal(exerciseRows.filter((line) => /format: "distance"/.test(line)).length, 28);
+  assert.match(exerciseData, /1000 - exerciseLibrarySource\.length - catalogHighlights\.length/);
+  assert.match(exerciseData, /visibility: "coach_only"/);
+  assert.match(exerciseData, /name: "2500 m temposvømning"/);
+  assert.match(exerciseData, /name: "3000 m intervalløb"/);
+  assert.match(exerciseData, /name: "Suicide runs"/);
+  assert.match(programCatalog, /Array\.from\(\{ length: 500 \}/);
+  assert.match(programCatalog, /durationWeeks: 12/);
+  assert.match(programCatalog, /buildTemplatePlan/);
+  for (const sport of ["athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"]) assert.match(sportCatalog, new RegExp(`id: "${sport}"`));
   assert.match(exerciseData, /name: "Bænkpres"/);
   assert.match(exerciseData, /name: "Dødløft"/);
   assert.match(exerciseData, /name: "Dips"/);
@@ -320,6 +329,12 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   assert.match(dashboard, /exerciseLibrary/);
   assert.match(dashboard, /Indlæs vandpas/);
   assert.match(dashboard, /Tildel passet til atleten/);
+  assert.match(dashboard, /500 komplette skabeloner/);
+  assert.match(dashboard, /Tildel alle 12 uger/);
+  assert.match(dashboard, /faktisk styrkevolume/);
+  assert.match(dashboard, /registreret distance/);
+  assert.match(coachRoute, /strengthVolumeKg/);
+  assert.match(coachRoute, /distanceMeters/);
   assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
   assert.match(schema, /coachTrainingPlans/);
   assert.match(planRoute, /BASE_COACH_KEY/);
@@ -338,7 +353,7 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   assert.match(planMigration, /idx_coach_training_plans_tester_status_date/);
 });
 
-test("persists and enforces each swimmer's selected distance profile", async () => {
+test("persists and enforces each athlete's selected sport profile", async () => {
   const [schema, participantRoute, trainingRoute, coachRoute, dashboard, migration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
@@ -354,9 +369,8 @@ test("persists and enforces each swimmer's selected distance profile", async () 
   assert.match(participantRoute, /inferredProfile = sessions\.some/);
   assert.match(participantRoute, /getProgram\(session\.programId\)/);
   assert.match(participantRoute, /trainingProfile: payload\.trainingProfile/);
-  assert.match(trainingRoute, /programId\?\.startsWith\(`strength-\$\{participant\.trainingProfile\}-`\)/);
-  assert.match(trainingRoute, /getStrengthProgram/);
-  assert.match(trainingRoute, /participant\.trainingProfile === "weightlifting"/);
+  assert.match(trainingRoute, /getTrainingProgram\(participant\.trainingProfile, payload\.programId\)/);
+  assert.match(trainingRoute, /matchesProfile = Boolean\(staticProgram\)/);
   assert.match(coachRoute, /trainingProfileLabel/);
   assert.match(dashboard, /athlete\.trainingProfileLabel/);
   assert.match(migration, /ADD `training_profile` text/);

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { exerciseLibrary, type ExerciseDefinition } from "../exercise-data";
 import type { SessionExercise } from "../program-data";
+import { buildTemplatePlan, programTemplates } from "../program-catalog";
+import { sportProfiles, type Difficulty, type TrainingProfile } from "../sport-catalog";
 import { swimPlans } from "../swim-program-data";
 
 type AthleteSession = {
@@ -14,8 +16,9 @@ type AthleteSession = {
 
 type Athlete = {
   testerId: string;
-  trainingProfile: "weightlifting" | "long_distance" | "middle_distance" | "sprint" | "recreational" | null;
+  trainingProfile: TrainingProfile | null;
   trainingProfileLabel: string; lastActiveAt: string | null; sessionsStarted: number; sessionsCompleted: number; setsLogged: number;
+  strengthVolumeKg: number; distanceMeters: number;
   sessions: AthleteSession[];
 };
 
@@ -47,6 +50,9 @@ export function CoachDashboard() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
   const [templateId, setTemplateId] = useState("");
+  const [programTemplateId, setProgramTemplateId] = useState("");
+  const [programSport, setProgramSport] = useState<"all" | TrainingProfile>("all");
+  const [programDifficulty, setProgramDifficulty] = useState<"all" | Difficulty>("all");
   const [unlocked, setUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
@@ -59,6 +65,7 @@ export function CoachDashboard() {
     return exerciseLibrary.filter((exercise) => (libraryCategory === "Alle" || exercise.category === libraryCategory)
       && (!query || `${exercise.name} ${exercise.category} ${exercise.target}`.toLocaleLowerCase("da-DK").includes(query)));
   }, [libraryCategory, librarySearch]);
+  const filteredProgramTemplates = useMemo(() => programTemplates.filter((template) => (programSport === "all" || template.sportId === programSport) && (programDifficulty === "all" || template.difficulty === programDifficulty)), [programDifficulty, programSport]);
   const totals = useMemo(() => ({
     sessions: athletes.reduce((sum, athlete) => sum + athlete.sessionsStarted, 0),
     completed: athletes.reduce((sum, athlete) => sum + athlete.sessionsCompleted, 0),
@@ -127,6 +134,35 @@ export function CoachDashboard() {
     setDraft((current) => ({ ...current, id: null, title: template.title, focus: template.focus, trainingType: "swim", exercises: template.exercises.map((exercise) => ({ ...exercise, tracking: "distance", restSeconds: exercise.restSeconds ?? 30 })) }));
   };
 
+  const loadProgramTemplate = () => {
+    const template = buildTemplatePlan(programTemplateId)[0];
+    if (!template) return;
+    const isWater = ["long_distance", "middle_distance", "sprint"].includes(programTemplates.find((item) => item.id === programTemplateId)?.sportId ?? "");
+    setDraft((current) => ({ ...current, id: null, title: template.title, focus: template.focus, trainingType: isWater ? "swim" : "strength", exercises: template.exercises.map((exercise) => ({ ...exercise, tracking: exercise.tracking ?? "load", restSeconds: exercise.restSeconds ?? 75 })) }));
+  };
+
+  const assignTwelveWeekProgram = async () => {
+    if (!selectedId || !programTemplateId) return;
+    const template = programTemplates.find((item) => item.id === programTemplateId);
+    const days = buildTemplatePlan(programTemplateId);
+    if (!template || days.length === 0) return;
+    setMutating(true); setError("");
+    try {
+      const firstMonday = new Date();
+      firstMonday.setDate(firstMonday.getDate() + ((8 - firstMonday.getDay()) % 7 || 7));
+      for (let index = 0; index < days.length; index += 1) {
+        const day = days[index];
+        const scheduledDate = new Date(firstMonday);
+        scheduledDate.setDate(firstMonday.getDate() + (day.week - 1) * 7 + [0, 2, 5][index % 3]);
+        const response = await fetch("/api/coach/plans", { method: "POST", headers: requestHeaders(true), body: JSON.stringify({ testerId: selectedId, title: day.title, focus: day.focus, scheduledDate: scheduledDate.toISOString().slice(0, 10), trainingType: ["long_distance", "middle_distance", "sprint"].includes(template.sportId) ? "swim" : "strength", exercises: day.exercises }) });
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error ?? `Uge ${day.week} kunne ikke tildeles.`);
+      }
+      await loadPlans(); setProgramTemplateId("");
+    } catch (assignError) { setError(assignError instanceof Error ? assignError.message : "12-ugers programmet kunne ikke tildeles."); }
+    finally { setMutating(false); }
+  };
+
   const editPlan = (plan: CoachPlan) => {
     setDraft({ id: plan.programId, title: plan.title, focus: plan.focus, scheduledDate: plan.scheduledDate, trainingType: plan.trainingType, exercises: plan.exercises.map((exercise) => ({ ...exercise, tracking: exercise.tracking ?? "load", restSeconds: exercise.restSeconds ?? 75 })) });
     document.getElementById("coach-plan-builder")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -177,12 +213,25 @@ export function CoachDashboard() {
 
           {selected && <section className="athlete-detail">
             <div className="athlete-detail-head"><div><span>ATLET · {selected.trainingProfileLabel.toLocaleUpperCase("da-DK")}</span><h2>{selected.testerId}</h2></div><div className="athlete-detail-actions"><small>Senest aktiv<br />{dateLabel(selected.lastActiveAt)}</small><button type="button" disabled={mutating} onClick={() => removeAthlete(selected.testerId)}>Fjern tildeling</button></div></div>
+            <section className="coach-athlete-dashboard">
+              <div><span>ATLETDASHBOARD</span><strong>Samlet træningsdata</strong></div>
+              <article><strong>{selected.sessionsCompleted}/{selected.sessionsStarted}</strong><span>gennemførte pas</span></article>
+              <article><strong>{selected.strengthVolumeKg.toLocaleString("da-DK")} kg</strong><span>faktisk styrkevolume</span></article>
+              <article><strong>{(selected.distanceMeters / 1000).toLocaleString("da-DK", { maximumFractionDigits: 1 })} km</strong><span>registreret distance</span></article>
+              <article><strong>{selected.setsLogged}</strong><span>registrerede sæt</span></article>
+            </section>
             <section className="coach-plan-builder" id="coach-plan-builder">
               <div className="coach-builder-title"><div><span>PROGRAMBYGGER</span><strong>{draft.id ? "Redigér tildelt pas" : "Tildel et nyt pas"}</strong></div>{draft.id && <button onClick={() => setDraft(emptyDraft())}>Nyt pas</button>}</div>
+              <section className="coach-program-bank">
+                <div><span>12-UGERS PROGRAMBANK</span><strong>500 komplette skabeloner</strong><small>Filtrér efter sport og niveau. Skjulte løbe-, shuttle- og vandforløb er kun tilgængelige her.</small></div>
+                <div className="coach-program-filters"><select value={programSport} onChange={(event) => { setProgramSport(event.target.value as "all" | TrainingProfile); setProgramTemplateId(""); }}><option value="all">Alle sportsgrene</option>{sportProfiles.map((sport) => <option key={sport.id} value={sport.id}>{sport.label}</option>)}</select><select value={programDifficulty} onChange={(event) => { setProgramDifficulty(event.target.value as "all" | Difficulty); setProgramTemplateId(""); }}><option value="all">Alle niveauer</option><option>Begynder</option><option>Øvet</option><option>Avanceret</option></select></div>
+                <select value={programTemplateId} onChange={(event) => setProgramTemplateId(event.target.value)}><option value="">Vælg blandt {filteredProgramTemplates.length} programmer…</option>{filteredProgramTemplates.map((template) => <option key={template.id} value={template.id}>{template.visibility === "coach_only" ? "🔒 " : ""}{template.title} · {template.difficulty}</option>)}</select>
+                <div className="coach-program-actions"><button disabled={!programTemplateId || mutating} onClick={loadProgramTemplate}>Indlæs første pas</button><button className="primary" disabled={!programTemplateId || mutating} onClick={assignTwelveWeekProgram}>{mutating ? "Tildeler…" : "Tildel alle 12 uger"}</button></div>
+              </section>
               <div className="coach-template-row"><label>SKJULTE VANDPAS<select value={templateId} onChange={(event) => setTemplateId(event.target.value)}><option value="">Vælg færdigt svømmepas…</option>{waterTemplates.map((template) => <option key={template.programId} value={template.programId ?? ""}>{template.title} · {template.distanceMeters?.toLocaleString("da-DK")} m</option>)}</select></label><button disabled={!templateId} onClick={loadWaterTemplate}>Indlæs vandpas</button></div>
               <div className="coach-plan-meta"><label>TITEL<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Fx Teknik & fart" /></label><label>DATO<input type="date" value={draft.scheduledDate} onChange={(event) => setDraft((current) => ({ ...current, scheduledDate: event.target.value }))} /></label><label>TYPE<select value={draft.trainingType} onChange={(event) => setDraft((current) => ({ ...current, trainingType: event.target.value as "strength" | "swim" }))}><option value="strength">Styrke på land</option><option value="swim">Træning i vand</option></select></label><label className="wide">FOKUS<input value={draft.focus} onChange={(event) => setDraft((current) => ({ ...current, focus: event.target.value }))} /></label></div>
-              <div className="coach-library-tools"><input aria-label="Søg øvelse" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder="Søg i alle 178 øvelser…" /><select value={libraryCategory} onChange={(event) => setLibraryCategory(event.target.value as LibraryCategory)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></div>
-              <div className="coach-library-list">{filteredExercises.map((exercise) => <button key={exercise.name} onClick={() => addExercise(exercise)}><span><strong>{exercise.name}</strong><small>{exercise.category} · {exercise.target}</small></span><b>＋</b></button>)}</div>
+              <div className="coach-library-tools"><input aria-label="Søg øvelse" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder="Søg i alle 1.000 øvelser…" /><select value={libraryCategory} onChange={(event) => setLibraryCategory(event.target.value as LibraryCategory)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></div>
+              <div className="coach-library-list">{filteredExercises.slice(0, 120).map((exercise) => <button key={exercise.name} onClick={() => addExercise(exercise)}><span><strong>{exercise.name}</strong><small>{exercise.category} · {exercise.difficulty} · {exercise.target}</small></span><b>＋</b></button>)}</div>
               <div className="coach-draft-list">
                 {draft.exercises.length === 0 && <div className="coach-empty"><strong>Passet er tomt.</strong><span>Indlæs et vandpas eller tilføj øvelser fra biblioteket.</span></div>}
                 {draft.exercises.map((exercise, index) => <article key={`${exercise.name}-${index}`}><div><span>{index + 1}</span><strong>{exercise.name}</strong><button aria-label={`Fjern ${exercise.name}`} onClick={() => removeExercise(index)}>Fjern</button></div><div><label>SÆT<input inputMode="numeric" value={exercise.sets} onChange={(event) => updateExercise(index, "sets", event.target.value)} /></label><label>{exercise.tracking === "distance" ? "DISTANCE" : "REPS"}<input value={exercise.plannedReps} onChange={(event) => updateExercise(index, "plannedReps", event.target.value)} /></label>{exercise.tracking !== "distance" && <label>VÆGT<input value={exercise.defaultWeight} onChange={(event) => updateExercise(index, "defaultWeight", event.target.value)} /></label>}<label>PAUSE<input inputMode="numeric" value={exercise.restSeconds} onChange={(event) => updateExercise(index, "restSeconds", event.target.value)} /></label></div></article>)}

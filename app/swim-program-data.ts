@@ -1,29 +1,10 @@
-import { twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
+import { extendPlanToTwelveWeeks, twoWeekPlan, type ProgramDay, type SessionExercise } from "./program-data";
 import { getSwimmerStrengthPlan } from "./strength-program-data";
 import { clarifyUnilateralReps } from "./exercise-units";
-
-export type SwimProfile = "long_distance" | "middle_distance" | "sprint";
-export type StrengthProfile = SwimProfile | "recreational";
-export type TrainingProfile = "weightlifting" | StrengthProfile;
-
-export const swimProfileOptions: Array<{ id: SwimProfile; label: string; short: string; description: string }> = [
-  { id: "long_distance", label: "Langdistance", short: "LANG", description: "Længere aerobe serier, stabil fart og effektiv teknik." },
-  { id: "middle_distance", label: "Mellemdistance", short: "MELLEM", description: "Tærskel, temposkift og fart omkring konkurrencetempo." },
-  { id: "sprint", label: "Sprint", short: "SPRINT", description: "Korte kvalitetsintervaller, maksimal fart og lange pauser." },
-];
-
-export const trainingProfileOptions: Array<{ id: TrainingProfile; label: string; short: string; description: string }> = [
-  { id: "weightlifting", label: "Vægtløftning", short: "VL", description: "Det oprindelige BASE-program med teknik, styrke og konkurrenceløft." },
-  { id: "long_distance", label: "Langdistance", short: "LANG", description: "Styrkeudholdenhed, holdning og stabilitet til længere svømmearbejde." },
-  { id: "middle_distance", label: "Mellemdistance", short: "MELLEM", description: "Helkropsstyrke og power til gentagen fart." },
-  { id: "sprint", label: "Sprint", short: "SPRINT", description: "Maksimal styrke og eksplosiv power med lange pauser." },
-  { id: "recreational", label: "Motionist", short: "MOTION", description: "Enkel helkropsstyrke til sundhed, robusthed og en stabil træningsrytme." },
-];
-
-export const trainingProfileLabel = (profile: TrainingProfile | null | undefined) =>
-  trainingProfileOptions.find((option) => option.id === profile)?.label ?? "Ikke valgt";
-
-export const swimProfileLabel = trainingProfileLabel;
+import { buildGenericTrainingPlan } from "./program-catalog";
+import type { StrengthProfile, SwimProfile, TrainingProfile } from "./sport-catalog";
+export { isSwimProfile, isTrainingProfile, swimProfileLabel, swimProfileOptions, trainingProfileLabel, trainingProfileOptions } from "./sport-catalog";
+export type { StrengthProfile, SwimProfile, TrainingProfile } from "./sport-catalog";
 
 const swim = (name: string, sets: number, meters: number, restSeconds: number, focus: string): SessionExercise => {
   const clearReps = clarifyUnilateralReps(name, `${meters} m`);
@@ -131,14 +112,13 @@ const sprintSessions: SwimSession[] = [
 ];
 
 export const swimPlans: Record<SwimProfile, ProgramDay[]> = {
-  long_distance: makePlan("long_distance", longDistanceSessions),
-  middle_distance: makePlan("middle_distance", middleDistanceSessions),
-  sprint: makePlan("sprint", sprintSessions),
+  long_distance: extendPlanToTwelveWeeks(makePlan("long_distance", longDistanceSessions)),
+  middle_distance: extendPlanToTwelveWeeks(makePlan("middle_distance", middleDistanceSessions)),
+  sprint: extendPlanToTwelveWeeks(makePlan("sprint", sprintSessions)),
 };
 
 export const defaultSwimProfile: SwimProfile = "middle_distance";
 export const getSwimPlan = (profile: SwimProfile) => swimPlans[profile];
 export const getSwimProgram = (programId: string) => Object.values(swimPlans).flat().find((day) => day.programId === programId);
-export const isSwimProfile = (value: unknown): value is SwimProfile => swimProfileOptions.some((option) => option.id === value);
-export const isTrainingProfile = (value: unknown): value is TrainingProfile => trainingProfileOptions.some((option) => option.id === value);
-export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : getSwimmerStrengthPlan(profile);
+export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : ["long_distance", "middle_distance", "sprint", "recreational"].includes(profile) ? getSwimmerStrengthPlan(profile as StrengthProfile) : buildGenericTrainingPlan(profile);
+export const getTrainingProgram = (profile: TrainingProfile, programId: string) => getTrainingPlan(profile).find((day) => day.programId === programId);

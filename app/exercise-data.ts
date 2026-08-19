@@ -1,14 +1,19 @@
 import { clarifyUnilateralReps } from "./exercise-units";
+import { sportProfiles, type ContentVisibility, type Difficulty, type TrainingProfile } from "./sport-catalog";
 
 export type ExerciseDefinition = {
   name: string;
-  category: "Konkurrenceløft" | "Snatch" | "Clean" | "Jerk" | "Squat" | "Træk" | "Assistance" | "Svømmestyrke" | "Svømning";
+  category: string;
   target: string;
   cue: string;
   sets: string;
   reps: string;
   weight: string;
   format?: "load" | "distance";
+  sports?: TrainingProfile[];
+  difficulty?: Difficulty;
+  visibility?: ContentVisibility;
+  focus?: string;
 };
 
 const exerciseLibrarySource: ExerciseDefinition[] = [
@@ -192,7 +197,66 @@ const exerciseLibrarySource: ExerciseDefinition[] = [
   { name: "Udsvømning", category: "Svømning", target: "Restitution · bevægelse", cue: "Sænk tempoet og find en rolig vejrtrækning", sets: "4", reps: "100 m", weight: "0", format: "distance" },
 ];
 
-export const exerciseLibrary: ExerciseDefinition[] = exerciseLibrarySource.map((exercise) => ({
+const sportExerciseSeeds: Record<TrainingProfile, Array<{ name: string; focus: string; distance?: boolean }>> = {
+  weightlifting: [{ name: "Positionstræk", focus: "Teknik" }, { name: "Squatvariant", focus: "Maksimal styrke" }, { name: "Jerk-fodarbejde", focus: "Timing" }, { name: "Overhead-stabilitet", focus: "Kontrol" }],
+  long_distance: [{ name: "2500 m temposvømning", focus: "Tempo", distance: true }, { name: "Aerob svømmeserie", focus: "Udholdenhed", distance: true }, { name: "Skuldertræk på land", focus: "Robusthed" }, { name: "Streamline core", focus: "Kropslinje" }],
+  middle_distance: [{ name: "3000 m vandinterval", focus: "Tærskel", distance: true }, { name: "Race-pace serie", focus: "Fart", distance: true }, { name: "Medicinboldstræk", focus: "Power" }, { name: "Skulderkontrol på land", focus: "Robusthed" }],
+  sprint: [{ name: "25 m sprintserie", focus: "Topfart", distance: true }, { name: "Start og undervand", focus: "Acceleration", distance: true }, { name: "Eksplosivt træk på land", focus: "Power" }, { name: "Vending-power på land", focus: "Eksplosivitet" }],
+  recreational: [{ name: "Helkropscirkel", focus: "Grundform" }, { name: "Kontrolleret squat", focus: "Benstyrke" }, { name: "Træk og pres", focus: "Helkrop" }, { name: "Balance og core", focus: "Stabilitet" }],
+  athletics: [{ name: "10 m acceleration", focus: "Acceleration", distance: true }, { name: "Tilløb og afsæt", focus: "Springkraft", distance: true }, { name: "Medicinboldkast", focus: "Kastekraft" }, { name: "Ensidig benstyrke", focus: "Robusthed" }],
+  golf: [{ name: "Kabelrotation", focus: "Rotation" }, { name: "Anti-rotation", focus: "Stabilitet" }, { name: "Hofteadskillelse", focus: "Mobilitet" }, { name: "Eksplosivt rotationskast", focus: "Slagkraft" }],
+  running: [{ name: "3000 m intervalløb", focus: "10 km-fart", distance: true }, { name: "Tærskelløb", focus: "Tærskel", distance: true }, { name: "Løbespecifik lægstyrke", focus: "Robusthed" }, { name: "Ensidig løbestyrke", focus: "Løbeøkonomi" }],
+  powerlifting: [{ name: "Squat konkurrencevariant", focus: "Squat" }, { name: "Bænkpres konkurrencevariant", focus: "Bænkpres" }, { name: "Dødløft konkurrencevariant", focus: "Dødløft" }, { name: "Triceps og øvre ryg", focus: "Assistance" }],
+  skiing: [{ name: "Skøjtegangsinterval", focus: "Kondition", distance: true }, { name: "Stavkraft", focus: "Overkrop" }, { name: "Ski squat", focus: "Benudholdenhed" }, { name: "Enbensbalance", focus: "Balance" }],
+  triathlon: [{ name: "Brick-interval", focus: "Skift", distance: true }, { name: "Triathlon core", focus: "Position" }, { name: "Hofte- og lægstyrke", focus: "Robusthed" }, { name: "Trækstyrke", focus: "Svømmerelation" }],
+  ironman: [{ name: "Lang brick-session", focus: "Udholdenhed", distance: true }, { name: "Ironman styrkeudholdenhed", focus: "Robusthed" }, { name: "Postural styrke", focus: "Position" }, { name: "Læg og fod", focus: "Holdbarhed" }],
+  hyrox: [{ name: "Sled push", focus: "Stationsstyrke" }, { name: "Sled pull", focus: "Stationsstyrke" }, { name: "Farmers carry", focus: "Greb" }, { name: "Hyrox løbeinterval", focus: "Løbsøkonomi", distance: true }],
+  crossfit: [{ name: "Mixed-modal styrke", focus: "Kapacitet" }, { name: "Gymnastisk træk", focus: "Gymnastik" }, { name: "Barbell cycling", focus: "Vægtløftning" }, { name: "Engine-interval", focus: "Kondition", distance: true }],
+  cycling: [{ name: "Cykelinterval", focus: "Tærskel", distance: true }, { name: "Sprint på cykel", focus: "Topkraft", distance: true }, { name: "Cykelrytter squat", focus: "Benstyrke" }, { name: "Positionel core", focus: "Position" }],
+  american_football: [{ name: "10-yard sprint", focus: "Acceleration", distance: true }, { name: "Pro-agility shuttle", focus: "Retningsskift", distance: true }, { name: "Kontaktstyrke", focus: "Robusthed" }, { name: "Eksplosivt pres", focus: "Positionskraft" }],
+  football: [{ name: "Suicide runs", focus: "Kampkondition", distance: true }, { name: "Repeated sprint", focus: "Gentagen fart", distance: true }, { name: "Copenhagen styrke", focus: "Lyskestyrke" }, { name: "Fodboldspillerens bagkæde", focus: "Robusthed" }],
+  handball: [{ name: "Retningsskiftbane", focus: "Retningsskift", distance: true }, { name: "Tilløb og hop", focus: "Springkraft", distance: true }, { name: "Kastestyrke", focus: "Skulderkraft" }, { name: "Skulderrobusthed", focus: "Holdbarhed" }],
+};
+
+const difficulties: Difficulty[] = ["Begynder", "Øvet", "Avanceret"];
+const variants = ["teknik", "kontrol", "progression", "kapacitet", "power", "restitution", "tempo", "konkurrence"];
+const catalogHighlights: ExerciseDefinition[] = [
+  { name: "2500 m temposvømning", category: "Svømning", target: "Tempo · udholdenhed", cue: "Hold jævne splittider og stabil teknik", sets: "1", reps: "2500 m", weight: "0", format: "distance", sports: ["long_distance", "middle_distance"], difficulty: "Øvet", visibility: "coach_only", focus: "Tempo" },
+  { name: "3000 m intervalløb", category: "Løb", target: "10 km-fart · intervaller", cue: "Hold den aftalte fart med kontrollerede pauser", sets: "6", reps: "500 m", weight: "0", format: "distance", sports: ["running"], difficulty: "Øvet", visibility: "coach_only", focus: "10 km-fart" },
+  { name: "Suicide runs", category: "Fodbold", target: "Kampkondition · retningsskift", cue: "Brems kontrolleret og accelerér med god position", sets: "6", reps: "120 m", weight: "0", format: "distance", sports: ["football", "american_football", "handball"], difficulty: "Avanceret", visibility: "coach_only", focus: "Gentagen sprint" },
+  { name: "Brick-interval", category: "Triathlon", target: "Skift · udholdenhed", cue: "Bevar teknik gennem skiftet mellem discipliner", sets: "4", reps: "1000 m", weight: "0", format: "distance", sports: ["triathlon", "ironman"], difficulty: "Øvet", visibility: "coach_only", focus: "Skift" },
+  { name: "Cykelinterval", category: "Cykling", target: "Tærskel · kadence", cue: "Hold stabil kadence og den aftalte pulszone", sets: "5", reps: "2000 m", weight: "0", format: "distance", sports: ["cycling"], difficulty: "Øvet", visibility: "coach_only", focus: "Tærskel" },
+  { name: "10-yard sprint", category: "Amerikansk fodbold", target: "Acceleration · første skridt", cue: "Start stabilt og accelerér gennem hele distancen", sets: "8", reps: "10 m", weight: "0", format: "distance", sports: ["american_football", "athletics"], difficulty: "Øvet", visibility: "coach_only", focus: "Acceleration" },
+];
+const generatedExerciseCount = Math.max(0, 1000 - exerciseLibrarySource.length - catalogHighlights.length);
+const generatedExercises: ExerciseDefinition[] = Array.from({ length: generatedExerciseCount }, (_, index) => {
+  const sport = sportProfiles[index % sportProfiles.length];
+  const seeds = sportExerciseSeeds[sport.id];
+  const seed = seeds[Math.floor(index / sportProfiles.length) % seeds.length];
+  const difficulty = difficulties[Math.floor(index / (sportProfiles.length * seeds.length)) % difficulties.length];
+  const variant = variants[Math.floor(index / (sportProfiles.length * seeds.length * difficulties.length)) % variants.length];
+  const distance = Boolean(seed.distance);
+  return {
+    name: `${seed.name} · ${sport.label} · ${difficulty.toLocaleLowerCase("da-DK")} ${variant} ${index + 1}`,
+    category: sport.label,
+    target: `${seed.focus} · ${difficulty}`,
+    cue: distance ? "Hold den aftalte fart og stop hvis teknikken falder" : "Prioritér kontrolleret kvalitet og den aftalte indsats",
+    sets: distance ? "4" : difficulty === "Begynder" ? "3" : "4",
+    reps: distance ? `${250 + (index % 8) * 250} m` : difficulty === "Avanceret" ? "5" : "8",
+    weight: distance ? "0" : "20",
+    format: distance ? "distance" : "load",
+    sports: [sport.id],
+    difficulty,
+    visibility: distance || ["long_distance", "middle_distance", "sprint"].includes(sport.id) && seed.distance ? "coach_only" : "athlete",
+    focus: seed.focus,
+  };
+});
+
+export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource.map((exercise) => ({
   ...exercise,
   reps: clarifyUnilateralReps(exercise.name, exercise.reps),
-}));
+  sports: exercise.sports ?? (exercise.category === "Svømning" || exercise.category === "Svømmestyrke" ? ["long_distance", "middle_distance", "sprint"] : ["weightlifting", "recreational"]),
+  difficulty: exercise.difficulty ?? "Øvet",
+  visibility: exercise.visibility ?? (exercise.category === "Svømning" ? "coach_only" : "athlete"),
+  focus: exercise.focus ?? exercise.target.split("·")[0].trim(),
+})), ...catalogHighlights, ...generatedExercises];

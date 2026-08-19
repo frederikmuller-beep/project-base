@@ -4,9 +4,8 @@ import { coachAthleteAssignments, coachTrainingPlans, testParticipants, training
 import { coachPlanToProgramDay } from "../../../../lib/coach-plans";
 import { hasPrivateAccess, getPrivateAccessSecret } from "../../../../lib/private-access";
 import { normalizeTesterId } from "../../../../lib/tester-session";
-import { getProgram } from "../../../program-data";
-import { getSwimProgram, swimProfileLabel } from "../../../swim-program-data";
-import { getStrengthProgram } from "../../../strength-program-data";
+import { parseEffortRepCount } from "../../../../lib/training-analytics";
+import { getTrainingProgram, swimProfileLabel, type TrainingProfile } from "../../../swim-program-data";
 
 const testCoachId = "test-coach-1";
 
@@ -52,11 +51,20 @@ export async function GET(request: Request) {
     }
 
     const athletes = participantIds.map((testerId) => {
+      const trainingProfile = participants.find((participant) => participant.testerId === testerId)?.trainingProfile ?? null;
+      let strengthVolumeKg = 0;
+      let distanceMeters = 0;
       const athleteSessions = sessions
         .filter((session) => session.testerId === testerId)
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .map((session) => {
-          const program = customPrograms.get(session.programId) ?? getStrengthProgram(session.programId) ?? getSwimProgram(session.programId) ?? getProgram(session.programId);
+          const program = customPrograms.get(session.programId) ?? (trainingProfile ? getTrainingProgram(trainingProfile as TrainingProfile, session.programId) : undefined);
+          const sessionLogs = logsBySession.get(session.id) ?? [];
+          for (const setLog of sessionLogs) {
+            const exercise = program?.exercises[setLog.exerciseIndex];
+            if (exercise?.tracking === "distance") distanceMeters += Number.parseFloat(setLog.reps) || 0;
+            else strengthVolumeKg += (Number.parseFloat(setLog.weight) || 0) * parseEffortRepCount(setLog.reps);
+          }
           return {
             id: session.id,
             programId: session.programId,
@@ -67,7 +75,7 @@ export async function GET(request: Request) {
             completedSets: session.completedSets,
             startedAt: session.startedAt,
             completedAt: session.completedAt,
-            sets: (logsBySession.get(session.id) ?? []).map((setLog) => ({
+            sets: sessionLogs.map((setLog) => ({
               exerciseName: program?.exercises[setLog.exerciseIndex]?.name ?? `Øvelse ${setLog.exerciseIndex + 1}`,
               setNumber: setLog.setIndex + 1,
               weight: setLog.weight,
@@ -83,12 +91,14 @@ export async function GET(request: Request) {
       const lastTrainingAt = athleteSessions[0]?.completedAt ?? athleteSessions[0]?.startedAt ?? null;
       return {
         testerId,
-        trainingProfile: participants.find((participant) => participant.testerId === testerId)?.trainingProfile ?? null,
-        trainingProfileLabel: swimProfileLabel(participants.find((participant) => participant.testerId === testerId)?.trainingProfile),
+        trainingProfile,
+        trainingProfileLabel: swimProfileLabel(trainingProfile),
         lastActiveAt: [lastSeenAt, lastTrainingAt].filter(Boolean).sort().at(-1) ?? null,
         sessionsStarted: athleteSessions.length,
         sessionsCompleted: athleteSessions.filter((session) => session.status === "completed").length,
         setsLogged: athleteSessions.reduce((total, session) => total + session.sets.length, 0),
+        strengthVolumeKg: Math.round(strengthVolumeKg),
+        distanceMeters: Math.round(distanceMeters),
         sessions: athleteSessions,
       };
     });

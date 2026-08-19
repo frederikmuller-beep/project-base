@@ -12,7 +12,7 @@ export const feedbackResponses = sqliteTable("feedback_responses", {
 
 export const testParticipants = sqliteTable("test_participants", {
   testerId: text("tester_id").primaryKey(),
-  trainingProfile: text("training_profile", { enum: ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational"] }),
+  trainingProfile: text("training_profile", { enum: ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational", "athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"] }),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

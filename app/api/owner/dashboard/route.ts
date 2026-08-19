@@ -1,15 +1,9 @@
 import { getDb } from "../../../../db";
 import { coachAthleteAssignments, feedbackResponses, testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { getPrivateAccessSecret, hasPrivateAccess } from "../../../../lib/private-access";
+import { sportProfiles } from "../../../sport-catalog";
 
-const profileLabels: Record<string, string> = {
-  weightlifting: "Vægtløftning",
-  long_distance: "Langdistance",
-  middle_distance: "Mellemdistance",
-  sprint: "Sprint",
-  recreational: "Motionist",
-  unknown: "Ikke valgt",
-};
+const profileLabels: Record<string, string> = Object.fromEntries([...sportProfiles.map((profile) => [profile.id, profile.label]), ["unknown", "Ikke valgt"]]);
 
 const safeAnswers = (value: string) => {
   try {
