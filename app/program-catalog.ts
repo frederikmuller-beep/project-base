@@ -1,4 +1,4 @@
-import { clarifyUnilateralReps } from "./exercise-units";
+import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
 import { getWeekProgression, progressExercisePrescription, type ProgramDay, type SessionExercise } from "./program-data";
 import { sportProfiles, type ContentVisibility, type Difficulty, type TrainingProfile } from "./sport-catalog";
 
@@ -57,46 +57,58 @@ export const programTemplates: ProgramTemplate[] = Array.from({ length: 500 }, (
   };
 });
 
-const strengthSeeds: Record<TrainingProfile, Array<[string, string, string]>> = {
-  weightlifting: [["Front squat", "3", "70"], ["Clean pull", "3", "90"], ["Strict press", "6", "35"]],
-  long_distance: [["Romanian deadlift", "8", "55"], ["Seated cable row", "10", "32.5"], ["Pallof press", "10", "12"]],
-  middle_distance: [["Front squat", "5", "60"], ["Pull-up", "6", "0"], ["Medicine ball slam", "6", "6"]],
-  sprint: [["Back squat", "4", "75"], ["Box jump", "3", "0"], ["Bench press", "5", "50"]],
-  recreational: [["Goblet squat", "8", "16"], ["Seated cable row", "10", "30"], ["Romanian deadlift", "8", "40"]],
-  athletics: [["Front squat", "5", "65"], ["Box jump", "4", "0"], ["Romanian deadlift", "6", "65"]],
-  golf: [["Pallof press", "10", "12"], ["Half-kneeling landmine press", "8", "20"], ["Single-leg Romanian deadlift", "8 pr. ben", "18"]],
-  running: [["Split squat", "8 pr. ben", "20"], ["Romanian deadlift", "8", "55"], ["Calf raise", "12", "25"]],
-  powerlifting: [["Back squat", "5", "80"], ["Bænkpres", "5", "55"], ["Dødløft", "4", "95"]],
-  skiing: [["Bulgarian split squat", "8 pr. ben", "22"], ["Romanian deadlift", "8", "55"], ["Seated cable row", "10", "35"]],
-  triathlon: [["Split squat", "8 pr. ben", "18"], ["Seated cable row", "10", "32.5"], ["Pallof press", "10", "12"]],
-  ironman: [["Goblet squat", "10", "18"], ["Romanian deadlift", "10", "50"], ["Seated cable row", "12", "30"]],
-  hyrox: [["Front squat", "6", "60"], ["Farmer's walk", "30 m", "24"], ["Push press", "6", "35"]],
-  crossfit: [["Front squat", "5", "60"], ["Push press", "6", "35"], ["Pull-up", "6", "0"]],
-  cycling: [["Back squat", "6", "65"], ["Bulgarian split squat", "8 pr. ben", "20"], ["Dead bug", "10", "0"]],
-  american_football: [["Back squat", "5", "80"], ["Bænkpres", "5", "60"], ["Box jump", "3", "0"]],
-  football: [["Split squat", "8 pr. ben", "20"], ["Romanian deadlift", "8", "55"], ["Copenhagen plank", "25 sek", "0"]],
-  handball: [["Front squat", "6", "60"], ["Half-kneeling landmine press", "8", "22.5"], ["Box jump", "4", "0"]],
+const sessionThemes = ["Hovedstyrke", "Power & ensidig kontrol", "Støttestyrke & robusthed"];
+const withSessionTheme = (title: string, theme: string) => `${title.slice(0, Math.max(1, 77 - theme.length)).trimEnd()} · ${theme}`;
+
+const exerciseSearchText = (exercise: ExerciseDefinition) => `${exercise.name} ${exercise.target} ${exercise.focus ?? ""}`.toLocaleLowerCase("da-DK");
+
+const sportPool = (profile: TrainingProfile, tracking: "load" | "distance", difficulty: Difficulty, focus: string) => {
+  const focusTerms = focus.toLocaleLowerCase("da-DK").split(/\s+|·/).filter((term) => term.length > 3);
+  const candidates = exerciseLibrary.filter((exercise) => exercise.sports?.includes(profile)
+    && (exercise.format ?? "load") === tracking
+    && (tracking === "distance" ? exercise.visibility === "coach_only" : exercise.visibility !== "coach_only"));
+  return candidates.sort((left, right) => {
+    const score = (exercise: ExerciseDefinition) => (exercise.difficulty === difficulty ? 3 : 0) + focusTerms.filter((term) => exerciseSearchText(exercise).includes(term)).length * 2;
+    return score(right) - score(left) || left.name.localeCompare(right.name, "da");
+  });
 };
 
-const sessionExercise = (name: string, reps: string, weight: string, week: number): SessionExercise => {
-  const plannedReps = clarifyUnilateralReps(name, reps);
-  return progressExercisePrescription({ name, sets: 4, plannedReps, defaultWeight: weight, focus: "Kontrolleret kvalitet med den planlagte indsats", tracking: "load", restSeconds: 75, effortMetric: "rir", effortTarget: "3–4 RIR", detail: "" }, week);
+const selectBlockExercises = (pool: ExerciseDefinition[], count: number, variant: number, block: number) => {
+  if (pool.length === 0) return [];
+  const offset = (variant * 7 + block * 11) % pool.length;
+  const rotated = [...pool.slice(offset), ...pool.slice(0, offset)];
+  return rotated.slice(0, Math.min(count, rotated.length));
 };
 
-export const buildGenericTrainingPlan = (profile: TrainingProfile): ProgramDay[] => Array.from({ length: 12 }, (_, weekIndex) => {
+const sessionExercise = (exercise: ExerciseDefinition, week: number): SessionExercise => progressExercisePrescription({
+  name: exercise.name,
+  sets: Math.max(1, Number(exercise.sets) || 3),
+  plannedReps: exercise.reps,
+  defaultWeight: exercise.weight,
+  focus: exercise.cue,
+  tracking: exercise.format ?? "load",
+  restSeconds: exercise.format === "distance" ? 45 : 75,
+  effortMetric: exercise.format === "distance" ? "heart_rate_zone" : "rir",
+  effortTarget: exercise.format === "distance" ? "Pulszone 2–3" : "3–4 RIR",
+  detail: "",
+}, week);
+
+export const buildGenericTrainingPlan = (profile: TrainingProfile, variant = 0, difficulty: Difficulty = "Øvet", focus = "sportsrelevant styrke"): ProgramDay[] => Array.from({ length: 12 }, (_, weekIndex) => {
   const week = weekIndex + 1;
   const progression = getWeekProgression(week);
+  const block = Math.floor(weekIndex / 4);
+  const selectedExercises = selectBlockExercises(sportPool(profile, "load", difficulty, focus), 12, variant, block);
   return [0, 2, 5].map((_, sessionIndex) => {
     const day = ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex];
-    const exercises = strengthSeeds[profile].map(([name, reps, weight]) => sessionExercise(name, reps, weight, week));
+    const exercises = selectedExercises.slice(sessionIndex * 4, sessionIndex * 4 + 4).map((exercise) => sessionExercise(exercise, week));
     return {
       programId: `base-${profile}-w${week}-s${sessionIndex + 1}`,
       week,
       day,
       date: `UGE ${week}`,
       status: week === 1 && sessionIndex === 0 ? "today" as const : "planned" as const,
-      title: `${sportProfiles.find((sport) => sport.id === profile)?.label} · ${["fundament", "kapacitet", "kvalitet"][sessionIndex]}`,
-      focus: `${progression.phase} · Sportsrelevant styrke på land; direkte løbe-, vand- og shuttlepas styres af træneren`,
+      title: `${sportProfiles.find((sport) => sport.id === profile)?.label} · ${sessionThemes[sessionIndex]}`,
+      focus: `${progression.phase} · ${focus}; direkte løbe-, vand- og shuttlepas styres af træneren`,
       duration: 50 + sessionIndex * 5,
       intensity: progression.intensity,
       phase: progression.phase,
@@ -110,21 +122,20 @@ export const getProgramTemplate = (id: string) => programTemplates.find((templat
 export const buildTemplatePlan = (id: string) => {
   const template = getProgramTemplate(id);
   if (!template) return [];
+  const variant = Number.parseInt(template.id.split("-").at(-1) ?? "0", 10) || 0;
   if (template.visibility === "coach_only") {
-    const directExercise = ["long_distance", "middle_distance", "sprint"].includes(template.sportId) ? "2500 m temposvømning"
-      : template.sportId === "football" ? "Suicide runs"
-      : template.sportId === "cycling" ? "Cykelinterval"
-      : ["triathlon", "ironman"].includes(template.sportId) ? "Brick-interval"
-      : template.sportId === "american_football" || template.sportId === "athletics" ? "10-yard sprint"
-      : "3000 m intervalløb";
-    return Array.from({ length: 12 }, (_, weekIndex) => [0, 2, 5].map((_, sessionIndex): ProgramDay => {
+    const pool = sportPool(template.sportId, "distance", template.difficulty, template.focus);
+    return Array.from({ length: 12 }, (_, weekIndex) => {
       const week = weekIndex + 1;
-      const baseMeters = directExercise === "10-yard sprint" ? 10 : directExercise === "Suicide runs" ? 120 : directExercise === "Cykelinterval" ? 2000 : directExercise === "Brick-interval" ? 1000 : 500;
+      const block = Math.floor(weekIndex / 4);
       const progression = getWeekProgression(week);
-      const exercise = progressExercisePrescription({ name: directExercise, sets: 6, plannedReps: `${baseMeters} m`, defaultWeight: "0", focus: template.focus, tracking: "distance", restSeconds: 60, effortMetric: "heart_rate_zone", effortTarget: "Pulszone 2–3", detail: "" }, week);
-      const distanceMeters = exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0);
-      return { programId: `${template.id}-w${week}-s${sessionIndex + 1}`, week, day: ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex], date: `UGE ${week}`, status: week === 1 && sessionIndex === 0 ? "today" : "planned", title: template.title, focus: `${progression.phase} · ${template.goal}`, duration: 45 + sessionIndex * 10, intensity: progression.intensity, phase: progression.phase, progressionNote: progression.summary, distanceMeters, exercises: [exercise] };
-    })).flat();
+      const selectedExercises = selectBlockExercises(pool, 6, variant, block);
+      return [0, 2, 5].map((_, sessionIndex): ProgramDay => {
+        const exercises = selectedExercises.slice(sessionIndex * 2, sessionIndex * 2 + 2).map((exercise) => sessionExercise(exercise, week));
+        const distanceMeters = exercises.reduce((total, exercise) => total + exercise.sets * (Number.parseFloat(exercise.plannedReps) || 0), 0);
+        return { programId: `${template.id}-w${week}-s${sessionIndex + 1}`, week, day: ["MANDAG", "ONSDAG", "LØRDAG"][sessionIndex], date: `UGE ${week}`, status: week === 1 && sessionIndex === 0 ? "today" : "planned", title: withSessionTheme(template.title, sessionThemes[sessionIndex]), focus: `${progression.phase} · ${template.goal}`, duration: 45 + sessionIndex * 10, intensity: progression.intensity, phase: progression.phase, progressionNote: progression.summary, distanceMeters, exercises };
+      });
+    }).flat();
   }
-  return buildGenericTrainingPlan(template.sportId).map((day) => ({ ...day, programId: `${template.id}-${day.programId?.split("-").slice(-2).join("-")}`, title: template.title, focus: template.goal }));
+  return buildGenericTrainingPlan(template.sportId, variant, template.difficulty, template.focus).map((day) => ({ ...day, programId: `${template.id}-${day.programId?.split("-").slice(-2).join("-")}`, title: withSessionTheme(template.title, day.title.split(" · ").at(-1) ?? "Træning"), focus: `${day.phase} · ${template.goal}` }));
 };
