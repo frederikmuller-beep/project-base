@@ -5,7 +5,7 @@ import { createServer } from "vite";
 test("all 500 templates use distinct weekly sessions and varied sport pools", { timeout: 60_000 }, async () => {
   const server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: "custom", logLevel: "silent" });
   try {
-    const [{ programTemplates, buildTemplatePlan }, { exerciseLibrary }] = await Promise.all([
+    const [{ programTemplates, buildTemplatePlan, exerciseMovementFamily }, { exerciseLibrary }] = await Promise.all([
       server.ssrLoadModule("/app/program-catalog.ts"),
       server.ssrLoadModule("/app/exercise-data.ts"),
     ]);
@@ -24,6 +24,11 @@ test("all 500 templates use distinct weekly sessions and varied sport pools", { 
         assert.equal(weekDays.length, 3);
         const weekExercises = weekDays.flatMap((day) => day.exercises.map((exercise) => exercise.name));
         assert.equal(new Set(weekExercises).size, weekExercises.length, `${template.id} repeats an exercise within week ${week}`);
+        if (template.visibility === "athlete") {
+          const families = weekExercises.map(exerciseMovementFamily);
+          assert.equal(new Set(families).size, families.length, `${template.id} repeats a movement family within week ${week}`);
+          assert.ok(weekExercises.every((name) => !/ · .+ · (begynder|øvet|avanceret) .+ \d+$/i.test(name)), `${template.id} exposes generated name variants`);
+        }
       }
 
       const weekOneSignature = days.slice(0, 3).flatMap((day) => day.exercises.map((exercise) => exercise.name)).join("|");
