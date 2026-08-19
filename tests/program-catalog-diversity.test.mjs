@@ -12,6 +12,10 @@ test("all 500 templates use distinct weekly sessions and varied sport pools", { 
     const exerciseNames = new Set(exerciseLibrary.map((exercise) => exercise.name));
     const signaturesBySport = new Map();
 
+    assert.ok(exerciseLibrary.length >= 200 && exerciseLibrary.length <= 300, "the curated library should favor quality over an artificial target");
+    assert.equal(exerciseNames.size, exerciseLibrary.length, "exercise names must be unique");
+    assert.ok(exerciseLibrary.every((exercise) => exercise.name && exercise.target && exercise.cue && exercise.sets && exercise.reps));
+    assert.ok(exerciseLibrary.every((exercise) => !/ · .+ · (begynder|øvet|avanceret) .+ \d+$/i.test(exercise.name)), "generated numbered variants must not exist in the library");
     assert.equal(programTemplates.length, 500);
     for (const template of programTemplates) {
       const days = buildTemplatePlan(template.id);

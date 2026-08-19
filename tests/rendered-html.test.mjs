@@ -118,7 +118,8 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.ok(exerciseRows.every((line) => /sets: "[^"]+", reps: "[^"]+", weight: "[^"]+"/.test(line)));
   assert.ok(exerciseRows.filter((line) => /category: "Svømning"/.test(line)).length >= 28);
   assert.equal(exerciseRows.filter((line) => /category: "Svømmestyrke"/.test(line)).length, 24);
-  assert.match(exerciseData, /1000 - exerciseLibrarySource\.length - catalogHighlights\.length/);
+  assert.doesNotMatch(exerciseData, /generatedExercise|sportExerciseSeeds|const variants/);
+  assert.match(exerciseData, /const curatedSportExercises/);
   assert.match(exerciseData, /visibility: "coach_only"/);
   assert.match(exerciseData, /name: "2500 m temposvømning"/);
   assert.match(exerciseData, /name: "3000 m intervalløb"/);

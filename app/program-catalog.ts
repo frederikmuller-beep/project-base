@@ -187,7 +187,9 @@ const selectWeeklyExercises = (pool: ExerciseDefinition[], perSession: number, v
   const usedFamilies = new Set<string>();
   const usedNames = new Set<string>();
   return sessionThemes.map((_, sessionIndex) => {
-    const preferred = rotated.filter((exercise) => exerciseTheme(exercise) === sessionIndex);
+    const preferredPool = pool.filter((exercise) => exerciseTheme(exercise) === sessionIndex);
+    const preferredOffset = preferredPool.length === 0 ? 0 : (offset + sessionIndex * 3) % preferredPool.length;
+    const preferred = [...preferredPool.slice(preferredOffset), ...preferredPool.slice(0, preferredOffset)];
     const fallback = rotated.filter((exercise) => exerciseTheme(exercise) !== sessionIndex);
     const selected: ExerciseDefinition[] = [];
     for (const exercise of [...preferred, ...fallback]) {

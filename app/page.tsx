@@ -774,7 +774,7 @@ export default function Home() {
           <button className="back" onClick={() => setView("today")}>← Tilbage</button>
           <p className="eyebrow">ØVELSESBIBLIOTEK</p>
           <h1>Variation med et formål.</h1>
-          <p className="lede">Hver variation er koblet til et træningsmål og et enkelt teknisk fokus.</p>
+          <p className="lede">Hver øvelse har et klart træningsmål, en konkret dosering og ét teknisk fokus.</p>
           <div className="library-summary">
             <div><strong>{exerciseLibrary.length.toLocaleString("da-DK")}</strong><span>i BASE</span></div>
             <div><strong>{athleteExerciseLibrary.length.toLocaleString("da-DK")}</strong><span>åbne i testen</span></div>
