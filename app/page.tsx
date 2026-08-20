@@ -53,6 +53,7 @@ const exerciseEffortMetric = (exercise: SessionExercise) => exercise.effortMetri
 const defaultEffortValue = (exercise: SessionExercise) => exerciseEffortMetric(exercise) === "heart_rate_zone" ? "2" : exercise.effortTarget?.startsWith("4") ? "5" : "3";
 const effortLabel = (metric: "rpe" | "rir" | "heart_rate_zone") => metric === "heart_rate_zone" ? "PULSZONE" : metric === "rir" ? "RIR" : "RPE";
 const effortSummary = (metric: "rpe" | "rir" | "heart_rate_zone", value: string) => metric === "heart_rate_zone" ? `pulszone ${value}` : metric === "rir" ? `${value} RIR` : `RPE ${value}`;
+const programRoleLabel = (role: SessionExercise["programRole"]) => role === "main" ? "HOVEDØVELSE" : role === "assistance" ? "ASSISTANCE" : role === "sport_specific" ? "SPORTSRELEVANT" : "";
 
 const positionFromCompletedSets = (plan: SessionExercise[], completedSets: number) => {
   let remaining = completedSets;
@@ -764,7 +765,7 @@ export default function Home() {
                     {day.exercises.map((exercise) => {
                       return (
                         <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
-                          <span>{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}{exercise.effortTarget ? ` · ${exercise.effortTarget}` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
+                          <span>{exercise.programRole ? `${programRoleLabel(exercise.programRole)} · ` : ""}{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}{exercise.effortTarget ? ` · ${exercise.effortTarget}` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
                         </button>
                       );
                     })}

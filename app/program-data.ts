@@ -11,6 +11,7 @@ export type SessionExercise = {
   restSeconds?: number;
   effortMetric?: "rir" | "heart_rate_zone";
   effortTarget?: string;
+  programRole?: "main" | "assistance" | "sport_specific";
 };
 
 export type ProgramDay = {
