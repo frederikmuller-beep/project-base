@@ -64,6 +64,13 @@
       "when": 1786902734686,
       "tag": "0008_nostalgic_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787213409455,
+      "tag": "0009_rare_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

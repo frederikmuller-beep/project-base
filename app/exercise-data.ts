@@ -1,6 +1,9 @@
 import { clarifyUnilateralReps } from "./exercise-units";
 import { type ContentVisibility, type Difficulty, type TrainingProfile } from "./sport-catalog";
 
+export const exerciseFocusTags = ["Eksplosivitet", "Elastik", "Unilateral", "Koordination", "Core"] as const;
+export type ExerciseFocusTag = typeof exerciseFocusTags[number];
+
 export type ExerciseDefinition = {
   name: string;
   category: string;
@@ -14,6 +17,7 @@ export type ExerciseDefinition = {
   difficulty?: Difficulty;
   visibility?: ContentVisibility;
   focus?: string;
+  tags?: ExerciseFocusTag[];
 };
 
 const exerciseLibrarySource: ExerciseDefinition[] = [
@@ -249,11 +253,58 @@ const curatedSportExercises: ExerciseDefinition[] = [
   { name: "Pogo jumps", category: "Atletik", target: "Ankelstivhed · reaktiv styrke", cue: "Hold kontakttiden kort og land på samme sted", sets: "4", reps: "12", weight: "0", sports: ["athletics", "running", "football", "handball"], difficulty: "Øvet", visibility: "athlete", focus: "Reaktiv styrke" },
 ];
 
-export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource.map((exercise) => ({
+const broadLandSports: TrainingProfile[] = ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational", "athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"];
+
+const supplementalFocusExercises: ExerciseDefinition[] = [
+  { name: "Depth jump", category: "Eksplosivitet", target: "Reaktiv styrke · landing", cue: "Træd ned, land kort og spring straks op med stabil knælinje", sets: "4", reps: "4", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Reaktiv styrke" },
+  { name: "Broad jump", category: "Eksplosivitet", target: "Horisontal power · landing", cue: "Skab kraft gennem hoften og land balanceret på begge fødder", sets: "5", reps: "3", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Horisontal power" },
+  { name: "Jump squat", category: "Eksplosivitet", target: "Ben · eksplosivitet", cue: "Brug let belastning, spring maksimalt og land roligt før næste gentagelse", sets: "4", reps: "5", weight: "20", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Eksplosivitet" },
+  { name: "Plyometric push-up", category: "Eksplosivitet", target: "Bryst · eksplosivt pres", cue: "Pres hurtigt fra gulvet og land med bløde albuer", sets: "4", reps: "5", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Overkropspower" },
+  { name: "Medicine ball chest pass", category: "Eksplosivitet", target: "Bryst · kastekraft", cue: "Kast eksplosivt fra en stabil kropsposition og nulstil mellem kast", sets: "5", reps: "5", weight: "5", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Kastekraft" },
+  { name: "Medicine ball scoop toss", category: "Eksplosivitet", target: "Hofte · rotationskraft", cue: "Start kraften fra ben og hofte og afslut kastet uden at overrotere", sets: "4", reps: "5 pr. side", weight: "5", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Rotationspower" },
+  { name: "Banded pull-apart", category: "Elastik", target: "Øvre ryg · skulderkontrol", cue: "Hold ribbenene nede og træk elastikken fra hinanden uden at løfte skuldrene", sets: "3", reps: "15", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Skulderkontrol" },
+  { name: "Banded face pull", category: "Elastik", target: "Øvre ryg · bagskulder", cue: "Træk mod øjenhøjde og afslut med underarmene lodrette", sets: "3", reps: "12", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Skulderrobusthed" },
+  { name: "Banded lateral walk", category: "Elastik", target: "Hofte · knækontrol", cue: "Hold konstant spænding i elastikken og bækkenet i ro", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Hoftekontrol" },
+  { name: "Banded good morning", category: "Elastik", target: "Bagkæde · hoftehængsel", cue: "Skub hoften tilbage og bevar en lang neutral ryg", sets: "3", reps: "12", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Bagkæde" },
+  { name: "Banded hip-flexion march", category: "Elastik", target: "Hoftebøjer · løbestabilitet", cue: "Løft ét knæ uden at læne kroppen eller miste bækkenkontrol", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Hoftekontrol" },
+  { name: "Banded Pallof press", category: "Elastik", target: "Core · antirotation", cue: "Pres hænderne frem og modstå elastikkens rotation", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Antirotation" },
+  { name: "Single-arm dumbbell bench press", category: "Unilateral", target: "Bryst · ensidig corekontrol", cue: "Hold bækken og ribben lige, mens én arm presser", sets: "4", reps: "8 pr. side", weight: "20", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidigt pres" },
+  { name: "Single-arm dumbbell overhead press", category: "Unilateral", target: "Skulder · ensidig stabilitet", cue: "Pres lodret uden at læne overkroppen til siden", sets: "3", reps: "8 pr. side", weight: "15", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidigt pres" },
+  { name: "Single-arm cable row", category: "Unilateral", target: "Ryg · ensidig trækkraft", cue: "Træk albuen tilbage uden at rotere kroppen", sets: "4", reps: "8 pr. side", weight: "25", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Ensidigt træk" },
+  { name: "Single-leg squat to box", category: "Unilateral", target: "Ben · balance · knækontrol", cue: "Sæt dig kontrolleret til boksen og pres op gennem hele foden", sets: "3", reps: "6 pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidig benstyrke" },
+  { name: "Single-leg calf raise", category: "Unilateral", target: "Læg · ankelkontrol", cue: "Arbejd gennem fuldt bevægeudslag uden at rulle ud over foden", sets: "3", reps: "12 pr. side", weight: "10", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Ensidig lægstyrke" },
+  { name: "Single-arm farmer carry", category: "Unilateral", target: "Greb · lateral core", cue: "Gå højt uden at læne dig mod vægten", sets: "4", reps: "30 m pr. side", weight: "24", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidig carry" },
+  { name: "A-skip", category: "Koordination", target: "Løberytme · fodisæt", cue: "Hold en høj kropsposition og ram jorden aktivt under hoften", sets: "4", reps: "20 m", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Løbekoordination" },
+  { name: "Lateral ladder drill", category: "Koordination", target: "Fodarbejde · rytme", cue: "Arbejd let på fødderne og øg først farten, når mønsteret er sikkert", sets: "4", reps: "2 gennemløb", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Fodarbejde" },
+  { name: "Carioca drill", category: "Koordination", target: "Hoftekoordination · sidebevægelse", cue: "Roter gennem hoften med rolig overkrop og jævn rytme", sets: "4", reps: "20 m pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Koordination" },
+  { name: "Cross-crawl", category: "Koordination", target: "Krydskoordination · core", cue: "Bevæg modsatte arm og ben langsomt uden at miste kropslinjen", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Krydskoordination" },
+  { name: "Single-leg balance reach", category: "Koordination", target: "Balance · ankel · hofte", cue: "Hold standbenet stabilt og nå kontrolleret i flere retninger", sets: "3", reps: "5 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Balance" },
+  { name: "Stir-the-pot", category: "Core", target: "Core · anti-ekstension", cue: "Hold kroppen stabil og tegn små cirkler med underarmene", sets: "3", reps: "8 hver vej", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Corekontrol" },
+  { name: "Bear crawl", category: "Core", target: "Core · skulderstabilitet · koordination", cue: "Hold knæene tæt over gulvet og bevæg modsatte hånd og fod sammen", sets: "4", reps: "20 m", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekoordination" },
+  { name: "Body saw", category: "Core", target: "Core · anti-ekstension", cue: "Bevar bækkenet neutralt, mens kroppen glider kontrolleret frem og tilbage", sets: "3", reps: "10", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekontrol" },
+  { name: "Half-kneeling anti-rotation hold", category: "Core", target: "Antirotation · hoftekontrol", cue: "Hold bryst og bækken lige frem mod kabeltrækket", sets: "3", reps: "20 sek pr. side", weight: "12", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Antirotation" },
+  { name: "Cable dead bug", category: "Core", target: "Core · krydsstabilitet", cue: "Hold lænden stabil, mens modsatte arm og ben strækkes", sets: "3", reps: "8 pr. side", weight: "10", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekontrol" },
+];
+
+const inferredTags = (exercise: ExerciseDefinition): ExerciseFocusTag[] => {
+  const text = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.focus ?? ""}`.toLocaleLowerCase("da-DK");
+  const tags: ExerciseFocusTag[] = [];
+  if (/eksplos|power|spring|jump|kast|throw|slam|sprint|acceleration|reaktiv|snatch|clean|jerk/.test(text)) tags.push("Eksplosivitet");
+  if (/band|elastik/.test(text)) tags.push("Elastik");
+  if (/single|enarm|enben|ensidig|split|lunge|step-up|pr\. side|pr\. ben/.test(text)) tags.push("Unilateral");
+  if (/koordination|balance|fodarbejde|timing|ladder|a-skip|carioca|cross-crawl|skater|agility|retningsskift/.test(text)) tags.push("Koordination");
+  if (/core|plank|pallof|dead bug|bird dog|hollow|ab wheel|carry|rotation|stabilitet|anti-ekstension|antirotation/.test(text)) tags.push("Core");
+  return tags;
+};
+
+const normalizeExercise = (exercise: ExerciseDefinition): ExerciseDefinition => ({
   ...exercise,
   reps: clarifyUnilateralReps(exercise.name, exercise.reps),
   sports: exercise.sports ?? (exercise.category === "Svømning" || exercise.category === "Svømmestyrke" ? ["long_distance", "middle_distance", "sprint"] : ["weightlifting", "recreational"]),
   difficulty: exercise.difficulty ?? "Øvet",
   visibility: exercise.visibility ?? (exercise.category === "Svømning" ? "coach_only" : "athlete"),
   focus: exercise.focus ?? exercise.target.split("·")[0].trim(),
-})), ...catalogHighlights, ...curatedSportExercises];
+  tags: Array.from(new Set([...(exercise.tags ?? []), ...inferredTags(exercise)])),
+});
+
+export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource, ...catalogHighlights, ...curatedSportExercises, ...supplementalFocusExercises].map(normalizeExercise);

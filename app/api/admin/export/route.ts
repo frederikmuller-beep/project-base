@@ -97,11 +97,12 @@ function overviewCsv(
     feedback: number;
     lastActivity: string;
     trainingProfile: string | null;
+    trainingDays: string | null;
   }>();
   const summaryFor = (testerId: string) => {
     const existing = summaries.get(testerId);
     if (existing) return existing;
-    const created = { sessions: new Set<string>(), completedSessions: new Set<string>(), sets: new Set<number>(), feedback: 0, lastActivity: "", trainingProfile: null as string | null };
+    const created = { sessions: new Set<string>(), completedSessions: new Set<string>(), sets: new Set<number>(), feedback: 0, lastActivity: "", trainingProfile: null as string | null, trainingDays: null as string | null };
     summaries.set(testerId, created);
     return created;
   };
@@ -109,6 +110,7 @@ function overviewCsv(
   for (const participant of participants) {
     const summary = summaryFor(participant.testerId);
     summary.trainingProfile = participant.trainingProfile;
+    summary.trainingDays = participant.trainingDays;
     summary.lastActivity = participant.lastSeenAt;
   }
 
@@ -129,11 +131,11 @@ function overviewCsv(
   const rows = [...summaries.entries()]
     .sort(([left], [right]) => left.localeCompare(right, "da"))
     .map(([testerId, summary]): CsvValue[] => [
-      testerId, summary.trainingProfile, summary.sessions.size, summary.completedSessions.size, summary.sets.size,
+      testerId, summary.trainingProfile, summary.trainingDays, summary.sessions.size, summary.completedSessions.size, summary.sets.size,
       summary.feedback, summary.lastActivity,
     ]);
   return toCsv(
-    ["tester_id", "training_profile", "sessions_started", "sessions_completed", "sets_logged", "feedback_responses", "last_activity_at"],
+    ["tester_id", "training_profile", "training_days", "sessions_started", "sessions_completed", "sets_logged", "feedback_responses", "last_activity_at"],
     rows,
   );
 }

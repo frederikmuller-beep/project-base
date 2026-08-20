@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../lib/health-data";
 import type { AthleteDashboardData, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
 import { AthleteDashboard } from "./athlete-dashboard";
-import { exerciseLibrary, type ExerciseDefinition } from "./exercise-data";
+import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, getWeekProgression, type ProgramDay, type SessionExercise } from "./program-data";
 import { defaultSwimProfile, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
+import { applyPreferredTrainingDays, defaultTrainingDays, hasConsecutiveTrainingDays, trainingWeekdays, type TrainingWeekday } from "./training-days";
 
 type View = "today" | "dashboard" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
@@ -22,6 +23,7 @@ type ExtraDayExercise = {
 };
 
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
+type LibraryFocus = "Alle" | ExerciseFocusTag;
 
 const defaultPlan = getTrainingPlan(defaultSwimProfile);
 
@@ -88,10 +90,14 @@ export default function Home() {
   const [savedExtraDayName, setSavedExtraDayName] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
+  const [libraryFocus, setLibraryFocus] = useState<LibraryFocus>("Alle");
   const [videoExercise, setVideoExercise] = useState<string | null>(null);
   const [testerId, setTesterId] = useState<string | null>(null);
   const [trainingProfile, setTrainingProfile] = useState<TrainingProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<TrainingProfile>(defaultSwimProfile);
+  const [trainingDays, setTrainingDays] = useState<TrainingWeekday[]>(defaultTrainingDays);
+  const [trainingDaysDraft, setTrainingDaysDraft] = useState<TrainingWeekday[]>(defaultTrainingDays);
+  const [editingPreferences, setEditingPreferences] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [testerInput, setTesterInput] = useState("");
   const [identityLoading, setIdentityLoading] = useState(true);
@@ -108,7 +114,10 @@ export default function Home() {
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(90);
   const [restRunning, setRestRunning] = useState(false);
   const activeProfile = trainingProfile ?? profileDraft;
-  const activePlan = useMemo(() => getTrainingPlan(activeProfile), [activeProfile]);
+  const activePlan = useMemo(() => {
+    const plan = getTrainingPlan(activeProfile);
+    return activeProfile === "weightlifting" ? plan : applyPreferredTrainingDays(plan, trainingDays);
+  }, [activeProfile, trainingDays]);
   const activeToday = activePlan[0];
   const selectedWeekPlan = useMemo(() => activePlan.filter((day) => day.week === selectedWeek), [activePlan, selectedWeek]);
   const selectedWeekProgression = getWeekProgression(selectedWeek);
@@ -191,10 +200,11 @@ export default function Home() {
     const query = librarySearch.trim().toLocaleLowerCase("da-DK");
     return athleteExerciseLibrary.filter((exercise) => {
       const matchesCategory = libraryCategory === "Alle" || exercise.category === libraryCategory;
-      const searchableText = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.cue}`.toLocaleLowerCase("da-DK");
-      return matchesCategory && (!query || searchableText.includes(query));
+      const matchesFocus = libraryFocus === "Alle" || exercise.tags?.includes(libraryFocus);
+      const searchableText = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.cue} ${exercise.tags?.join(" ") ?? ""}`.toLocaleLowerCase("da-DK");
+      return matchesCategory && matchesFocus && (!query || searchableText.includes(query));
     });
-  }, [athleteExerciseLibrary, libraryCategory, librarySearch]);
+  }, [athleteExerciseLibrary, libraryCategory, libraryFocus, librarySearch]);
   const selectedVideo = videoExercise ? exerciseVideos[videoExercise] : undefined;
   const currentSetKey = setLogKey(exerciseIndex, setIndex);
   const currentSetWasLogged = Boolean(sessionLogs[currentSetKey]);
@@ -260,18 +270,26 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     fetch("/api/participant", { cache: "no-store" })
-      .then(async (response) => response.json() as Promise<{ testerId: string | null; trainingProfile: TrainingProfile | null }>)
+      .then(async (response) => response.json() as Promise<{ testerId: string | null; trainingProfile: TrainingProfile | null; trainingDays?: TrainingWeekday[] }>)
       .then(async (data) => {
         if (!active) return;
         setTesterId(data.testerId);
         setTrainingProfile(data.trainingProfile);
         if (data.trainingProfile) setProfileDraft(data.trainingProfile);
+        if (data.trainingDays?.length === 3) {
+          setTrainingDays(data.trainingDays);
+          setTrainingDaysDraft(data.trainingDays);
+        }
         if (data.testerId) await Promise.all([loadProgress(), loadHealthSummary(), loadCoachPlans()]);
       })
       .catch(() => undefined)
       .finally(() => { if (active) setIdentityLoading(false); });
     return () => { active = false; };
   }, []);
+
+  const toggleTrainingDay = (day: TrainingWeekday) => setTrainingDaysDraft((current) => current.includes(day)
+    ? current.filter((candidate) => candidate !== day)
+    : current.length < 3 ? [...current, day] : current);
 
   const connectTester = async () => {
     setIdentityError("");
@@ -280,12 +298,15 @@ export default function Home() {
       const response = await fetch("/api/participant", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ testerId: testerId ?? testerInput, trainingProfile: profileDraft }),
+        body: JSON.stringify({ testerId: testerId ?? testerInput, trainingProfile: profileDraft, trainingDays: trainingDaysDraft }),
       });
-      const data = (await response.json()) as { testerId?: string; trainingProfile?: TrainingProfile; error?: string };
+      const data = (await response.json()) as { testerId?: string; trainingProfile?: TrainingProfile; trainingDays?: TrainingWeekday[]; error?: string };
       if (!response.ok || !data.testerId) throw new Error(data.error ?? "Tester-ID kunne ikke gemmes.");
       setTesterId(data.testerId);
       setTrainingProfile(data.trainingProfile ?? profileDraft);
+      setTrainingDays(data.trainingDays ?? trainingDaysDraft);
+      setTrainingDaysDraft(data.trainingDays ?? trainingDaysDraft);
+      setEditingPreferences(false);
       setTesterInput("");
       await Promise.all([loadProgress(), loadHealthSummary(), loadCoachPlans()]);
     } catch (error) {
@@ -299,6 +320,9 @@ export default function Home() {
     await fetch("/api/participant", { method: "DELETE" });
     setTesterId(null);
     setTrainingProfile(null);
+    setTrainingDays(defaultTrainingDays);
+    setTrainingDaysDraft(defaultTrainingDays);
+    setEditingPreferences(false);
     setProgress({});
     setCoachPlans([]);
     setHealthSummary(null);
@@ -665,15 +689,15 @@ export default function Home() {
           <h1>Dit program over 12 uger.</h1>
           <p className="lede">Åbn hvert planlagt pas, udfør alle sæt og fortsæt senere uden at miste din fremdrift.</p>
           <article className={testerId ? "tester-card connected" : "tester-card"}>
-            {testerId && trainingProfile ? (
+            {testerId && trainingProfile && !editingPreferences ? (
               <>
                 <span className="tester-check">✓</span>
-                <div><strong>{testerId} · {trainingProfileLabel(trainingProfile)}</strong><small>Dit 12-ugers program og alle sæt gemmes på testprofilen.</small></div>
-                <button onClick={disconnectTester}>Skift</button>
+                <div><strong>{testerId} · {trainingProfileLabel(trainingProfile)}</strong><small>{trainingProfile === "weightlifting" ? "Den eksisterende vægtløftertest beholder sine fem faste ugentlige pas." : `Træningsdage: ${trainingDays.map((day) => day.toLocaleLowerCase("da-DK")).join(" · ")}`}</small></div>
+                <div className="tester-actions"><button onClick={() => { setProfileDraft(trainingProfile); setTrainingDaysDraft(trainingDays); setEditingPreferences(true); }}>Redigér</button><button onClick={disconnectTester}>Log ud</button></div>
               </>
             ) : (
               <>
-                <div className="tester-copy"><strong>{testerId ? "Vælg din træningsprofil" : "Forbind tester-ID og træningsprofil"}</strong><small>Vælg den profil, der matcher den træning, du allerede tester i BASE.</small></div>
+                <div className="tester-copy"><strong>{testerId ? "Redigér profil og træningsdage" : "Forbind tester-ID og træningsprofil"}</strong><small>Vælg den profil og de tre ugedage, der passer til din hverdag.</small></div>
                 <div className="profile-options" role="radiogroup" aria-label="Træningsprofil">
                   {trainingProfileOptions.map((option) => (
                     <button type="button" role="radio" aria-checked={profileDraft === option.id} className={profileDraft === option.id ? "active" : ""} key={option.id} onClick={() => setProfileDraft(option.id)}>
@@ -681,9 +705,11 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                {profileDraft === "weightlifting" ? <div className="training-day-note"><strong>Eksisterende vægtløftertest</strong><span>Profilen har fem faste ugentlige pas og beholder den nuværende rytme, så den igangværende test ikke ændres.</span></div> : <div className="training-day-picker"><span>VÆLG 3 TRÆNINGSDAGE</span><div className="training-day-options">{trainingWeekdays.map((day) => <button type="button" key={day} className={trainingDaysDraft.includes(day) ? "active" : ""} aria-pressed={trainingDaysDraft.includes(day)} onClick={() => toggleTrainingDay(day)}><strong>{day.slice(0, 3)}</strong><small>{day.toLocaleLowerCase("da-DK")}</small></button>)}</div><small>{trainingDaysDraft.length}/3 valgt · valget gælder alle 12 uger og kan ændres senere.</small>{hasConsecutiveTrainingDays(trainingDaysDraft) && <p>Bemærk: Du har valgt sammenhængende træningsdage. Overvej at gøre mindst ét af passene lettere.</p>}</div>}
                 <div className="tester-connect">
                   {!testerId && <input aria-label="Tester-ID" value={testerInput} onChange={(event) => setTesterInput(event.target.value)} placeholder="A1" maxLength={12} />}
-                  <button onClick={connectTester} disabled={identityLoading || (!testerId && !testerInput.trim())}>{identityLoading ? "…" : testerId ? "Gem profil" : "Forbind"}</button>
+                  <button onClick={connectTester} disabled={identityLoading || (!testerId && !testerInput.trim()) || (profileDraft !== "weightlifting" && trainingDaysDraft.length !== 3)}>{identityLoading ? "…" : testerId ? "Gem valg" : "Forbind"}</button>
+                  {testerId && <button className="cancel" onClick={() => { setProfileDraft(trainingProfile ?? defaultSwimProfile); setTrainingDaysDraft(trainingDays); setEditingPreferences(false); }}>Annullér</button>}
                 </div>
               </>
             )}
@@ -796,6 +822,16 @@ export default function Home() {
                 placeholder="Fx pause, squat eller jerk"
               />
             </label>
+            <div className="focus-filters" aria-label="Filtrér øvelser efter fokus">
+              {(["Alle", ...exerciseFocusTags] as LibraryFocus[]).map((focus) => (
+                <button
+                  key={focus}
+                  className={libraryFocus === focus ? "active" : ""}
+                  aria-pressed={libraryFocus === focus}
+                  onClick={() => setLibraryFocus(focus)}
+                >{focus === "Alle" ? "Alle fokusområder" : focus}</button>
+              ))}
+            </div>
             <div className="category-filters" aria-label="Filtrér øvelser efter kategori">
               {libraryCategories.map((category) => (
                 <button

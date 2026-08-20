@@ -5,7 +5,7 @@ import { createServer } from "vite";
 test("all 500 templates use distinct weekly sessions and varied sport pools", { timeout: 60_000 }, async () => {
   const server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: "custom", logLevel: "silent" });
   try {
-    const [{ programTemplates, buildTemplatePlan, exerciseMovementFamily }, { exerciseLibrary }] = await Promise.all([
+    const [{ programTemplates, buildTemplatePlan, exerciseMovementFamily }, { exerciseFocusTags, exerciseLibrary }] = await Promise.all([
       server.ssrLoadModule("/app/program-catalog.ts"),
       server.ssrLoadModule("/app/exercise-data.ts"),
     ]);
@@ -15,6 +15,9 @@ test("all 500 templates use distinct weekly sessions and varied sport pools", { 
     assert.ok(exerciseLibrary.length >= 200 && exerciseLibrary.length <= 300, "the curated library should favor quality over an artificial target");
     assert.equal(exerciseNames.size, exerciseLibrary.length, "exercise names must be unique");
     assert.ok(exerciseLibrary.every((exercise) => exercise.name && exercise.target && exercise.cue && exercise.sets && exercise.reps));
+    for (const focus of exerciseFocusTags) {
+      assert.ok(exerciseLibrary.filter((exercise) => exercise.tags?.includes(focus)).length >= 5, `${focus} needs a useful filtered exercise pool`);
+    }
     assert.ok(exerciseLibrary.every((exercise) => !/ · .+ · (begynder|øvet|avanceret) .+ \d+$/i.test(exercise.name)), "generated numbered variants must not exist in the library");
     assert.equal(programTemplates.length, 500);
     for (const template of programTemplates) {

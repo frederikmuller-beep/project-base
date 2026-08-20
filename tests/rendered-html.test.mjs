@@ -322,7 +322,9 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   ]);
 
   assert.match(schema, /testParticipants/);
+  assert.match(schema, /trainingDays: text\("training_days"\)/);
   assert.match(participantRoute, /insert\(testParticipants\)/);
+  assert.match(participantRoute, /Vælg præcis tre forskellige træningsdage/);
   assert.match(coachRoute, /BASE_COACH_KEY/);
   assert.match(coachRoute, /trainingSessions/);
   assert.match(coachRoute, /trainingSetLogs/);
@@ -339,6 +341,7 @@ test("protects the coach view and limits it to pseudonymous training data", asyn
   assert.match(dashboard, /AKTIVE TESTPROFILER/);
   assert.match(dashboard, /SKJULTE VANDPAS/);
   assert.match(dashboard, /exerciseLibrary/);
+  assert.match(dashboard, /Fokusområde/);
   assert.match(dashboard, /Indlæs vandpas/);
   assert.match(dashboard, /Tildel passet til atleten/);
   assert.match(dashboard, /500 komplette skabeloner/);

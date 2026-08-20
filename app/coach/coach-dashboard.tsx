@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { exerciseLibrary, type ExerciseDefinition } from "../exercise-data";
+import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "../exercise-data";
 import type { SessionExercise } from "../program-data";
 import { buildTemplatePlan, programTemplates } from "../program-catalog";
 import { sportProfiles, type Difficulty, type TrainingProfile } from "../sport-catalog";
@@ -29,6 +29,7 @@ type CoachPlan = {
 };
 type DraftExercise = SessionExercise & { tracking: "load" | "distance"; restSeconds: number };
 type LibraryCategory = "Alle" | ExerciseDefinition["category"];
+type LibraryFocus = "Alle" | ExerciseFocusTag;
 
 const waterTemplates = Object.values(swimPlans).flat().filter((day) => day.programId && day.exercises.length > 0);
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -49,6 +50,7 @@ export function CoachDashboard() {
   const [draft, setDraft] = useState(emptyDraft);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryCategory, setLibraryCategory] = useState<LibraryCategory>("Alle");
+  const [libraryFocus, setLibraryFocus] = useState<LibraryFocus>("Alle");
   const [templateId, setTemplateId] = useState("");
   const [programTemplateId, setProgramTemplateId] = useState("");
   const [programSport, setProgramSport] = useState<"all" | TrainingProfile>("all");
@@ -63,8 +65,9 @@ export function CoachDashboard() {
   const filteredExercises = useMemo(() => {
     const query = librarySearch.trim().toLocaleLowerCase("da-DK");
     return exerciseLibrary.filter((exercise) => (libraryCategory === "Alle" || exercise.category === libraryCategory)
-      && (!query || `${exercise.name} ${exercise.category} ${exercise.target}`.toLocaleLowerCase("da-DK").includes(query)));
-  }, [libraryCategory, librarySearch]);
+      && (libraryFocus === "Alle" || exercise.tags?.includes(libraryFocus))
+      && (!query || `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.tags?.join(" ") ?? ""}`.toLocaleLowerCase("da-DK").includes(query)));
+  }, [libraryCategory, libraryFocus, librarySearch]);
   const filteredProgramTemplates = useMemo(() => programTemplates.filter((template) => (programSport === "all" || template.sportId === programSport) && (programDifficulty === "all" || template.difficulty === programDifficulty)), [programDifficulty, programSport]);
   const totals = useMemo(() => ({
     sessions: athletes.reduce((sum, athlete) => sum + athlete.sessionsStarted, 0),
@@ -230,7 +233,7 @@ export function CoachDashboard() {
               </section>
               <div className="coach-template-row"><label>SKJULTE VANDPAS<select value={templateId} onChange={(event) => setTemplateId(event.target.value)}><option value="">Vælg færdigt svømmepas…</option>{waterTemplates.map((template) => <option key={template.programId} value={template.programId ?? ""}>{template.title} · {template.distanceMeters?.toLocaleString("da-DK")} m</option>)}</select></label><button disabled={!templateId} onClick={loadWaterTemplate}>Indlæs vandpas</button></div>
               <div className="coach-plan-meta"><label>TITEL<input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Fx Teknik & fart" /></label><label>DATO<input type="date" value={draft.scheduledDate} onChange={(event) => setDraft((current) => ({ ...current, scheduledDate: event.target.value }))} /></label><label>TYPE<select value={draft.trainingType} onChange={(event) => setDraft((current) => ({ ...current, trainingType: event.target.value as "strength" | "swim" }))}><option value="strength">Styrke på land</option><option value="swim">Træning i vand</option></select></label><label className="wide">FOKUS<input value={draft.focus} onChange={(event) => setDraft((current) => ({ ...current, focus: event.target.value }))} /></label></div>
-              <div className="coach-library-tools"><input aria-label="Søg øvelse" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder={`Søg i ${exerciseLibrary.length} øvelser…`} /><select value={libraryCategory} onChange={(event) => setLibraryCategory(event.target.value as LibraryCategory)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></div>
+              <div className="coach-library-tools"><input aria-label="Søg øvelse" value={librarySearch} onChange={(event) => setLibrarySearch(event.target.value)} placeholder={`Søg i ${exerciseLibrary.length} øvelser…`} /><select aria-label="Kategori" value={libraryCategory} onChange={(event) => setLibraryCategory(event.target.value as LibraryCategory)}>{categories.map((category) => <option key={category}>{category}</option>)}</select><select aria-label="Fokusområde" value={libraryFocus} onChange={(event) => setLibraryFocus(event.target.value as LibraryFocus)}><option value="Alle">Alle fokusområder</option>{exerciseFocusTags.map((focus) => <option key={focus}>{focus}</option>)}</select></div>
               <div className="coach-library-list">{filteredExercises.slice(0, 120).map((exercise) => <button key={exercise.name} onClick={() => addExercise(exercise)}><span><strong>{exercise.name}</strong><small>{exercise.category} · {exercise.difficulty} · {exercise.target}</small></span><b>＋</b></button>)}</div>
               <div className="coach-draft-list">
                 {draft.exercises.length === 0 && <div className="coach-empty"><strong>Passet er tomt.</strong><span>Indlæs et vandpas eller tilføj øvelser fra biblioteket.</span></div>}
