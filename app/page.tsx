@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../lib/health-data";
-import type { AthleteDashboardData, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
+import type { AthleteDashboardData, ExerciseHistorySession, HistoricalLoadRecommendation, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
 import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "./exercise-data";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
@@ -45,6 +45,12 @@ type TrainingSetLog = {
   rpe: string;
   effortMetric?: "rpe" | "rir" | "heart_rate_zone";
   techniqueQuality?: TechniqueQuality | null;
+};
+
+type ExerciseHistoryData = {
+  exerciseName: string;
+  history: ExerciseHistorySession[];
+  recommendation: HistoricalLoadRecommendation | null;
 };
 
 const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
@@ -114,6 +120,10 @@ export default function Home() {
   const [resumePosition, setResumePosition] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
   const [restSecondsRemaining, setRestSecondsRemaining] = useState(90);
   const [restRunning, setRestRunning] = useState(false);
+  const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistoryData | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const sessionLogsRef = useRef(sessionLogs);
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => {
     const plan = getTrainingPlan(activeProfile);
@@ -215,6 +225,10 @@ export default function Home() {
   );
 
   useEffect(() => {
+    sessionLogsRef.current = sessionLogs;
+  }, [sessionLogs]);
+
+  useEffect(() => {
     if (!restRunning) return;
     const timer = window.setInterval(() => {
       setRestSecondsRemaining((seconds) => {
@@ -227,6 +241,26 @@ export default function Home() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [restRunning]);
+
+  useEffect(() => {
+    if (view !== "session" || !sessionProgramId || !currentExercise || currentExercise.tracking === "distance") return;
+    const controller = new AbortController();
+    fetch(`/api/training/exercise-history?programId=${encodeURIComponent(sessionProgramId)}&exerciseIndex=${exerciseIndex}`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Historikken kunne ikke hentes.");
+        return response.json() as Promise<ExerciseHistoryData>;
+      })
+      .then((data) => {
+        setExerciseHistory(data);
+        const firstSet = setLogKey(exerciseIndex, 0);
+        if (!sessionLogsRef.current[firstSet] && data.recommendation) setWeight(String(data.recommendation.proposedWeight));
+      })
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setExerciseHistory(null);
+      })
+      .finally(() => { if (!controller.signal.aborted) setHistoryLoading(false); });
+    return () => controller.abort();
+  }, [view, sessionProgramId, exerciseIndex, currentExercise]);
 
   const loadProgress = async () => {
     const response = await fetch("/api/training", { cache: "no-store" });
@@ -349,6 +383,7 @@ export default function Home() {
     setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe(activeToday.exercises[0] ? defaultEffortValue(activeToday.exercises[0]) : "3"); setTechniqueQuality(""); setLoadSuggestion(null); setSessionPlan(activeToday.exercises);
     setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
     setRestSecondsRemaining(90); setRestRunning(false);
+    setExerciseHistory(null); setHistoryOpen(false); setHistoryLoading(false);
   };
 
   const startSession = (
@@ -379,6 +414,9 @@ export default function Home() {
     setRpe(openingLog?.rpe ?? defaultEffortValue(openingExercise));
     setTechniqueQuality(openingLog?.techniqueQuality ?? "");
     setLoadSuggestion(null);
+    setExerciseHistory(null);
+    setHistoryOpen(false);
+    setHistoryLoading(openingExercise.tracking !== "distance");
     setRestSecondsRemaining(openingExercise.restSeconds ?? 90);
     setRestRunning(false);
     setView("session");
@@ -464,6 +502,11 @@ export default function Home() {
   const openLoggedSet = (log: TrainingSetLog) => {
     if (!editingSetKey) setResumePosition({ exerciseIndex, setIndex });
     setEditingSetKey(setLogKey(log.exerciseIndex, log.setIndex));
+    if (log.exerciseIndex !== exerciseIndex) {
+      setExerciseHistory(null);
+      setHistoryOpen(false);
+      setHistoryLoading(sessionPlan[log.exerciseIndex]?.tracking !== "distance");
+    }
     setExerciseIndex(log.exerciseIndex);
     setSetIndex(log.setIndex);
     setWeight(log.weight);
@@ -484,6 +527,11 @@ export default function Home() {
     const resumeExercise = sessionPlan[resumePosition.exerciseIndex];
     const resumeLog = sessionLogs[setLogKey(resumePosition.exerciseIndex, resumePosition.setIndex)];
     setExerciseIndex(resumePosition.exerciseIndex);
+    if (resumePosition.exerciseIndex !== exerciseIndex) {
+      setExerciseHistory(null);
+      setHistoryOpen(false);
+      setHistoryLoading(resumeExercise.tracking !== "distance");
+    }
     setSetIndex(resumePosition.setIndex);
     setWeight(resumeLog?.weight ?? resumeExercise.defaultWeight);
     setReps(resumeLog?.reps ?? resumeExercise.plannedReps);
@@ -515,6 +563,9 @@ export default function Home() {
       setRpe(defaultEffortValue(nextExercise));
       setTechniqueQuality("");
       setLoadSuggestion(null);
+      setExerciseHistory(null);
+      setHistoryOpen(false);
+      setHistoryLoading(nextExercise.tracking !== "distance");
       setRestSecondsRemaining(nextExercise.restSeconds ?? 90);
       setRestRunning(false);
       return;
@@ -999,6 +1050,31 @@ export default function Home() {
           <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
+          {currentExercise.tracking !== "distance" && (
+            <article className={`exercise-history-summary ${exerciseHistory?.recommendation?.decision ?? "planned"}`}>
+              <div>
+                <span>PERSONLIG STARTVÆGT</span>
+                <strong>{historyLoading ? "Beregner ud fra tidligere sæt…" : exerciseHistory?.recommendation ? `${String(exerciseHistory.recommendation.proposedWeight).replace(".", ",")} kg` : `${currentExercise.defaultWeight} kg`}</strong>
+                {!historyLoading && exerciseHistory?.recommendation && <small>{exerciseHistory.recommendation.headline} · {exerciseHistory.recommendation.reasons[0]}</small>}
+              </div>
+              <button onClick={() => setHistoryOpen((open) => !open)} disabled={historyLoading}>
+                {historyOpen ? "Skjul historik" : `Se historik${exerciseHistory?.history.length ? ` · ${exerciseHistory.history.length} pas` : ""}`}
+              </button>
+            </article>
+          )}
+          {historyOpen && exerciseHistory && (
+            <article className="exercise-history-panel">
+              <div className="exercise-history-title"><span>TIDLIGERE SÆT</span><strong>{exerciseHistory.exerciseName}</strong></div>
+              {exerciseHistory.history.length === 0 ? (
+                <p>Ingen tidligere registreringer. BASE bruger den planlagte vægt i dette pas.</p>
+              ) : exerciseHistory.history.map((session) => (
+                <div className="exercise-history-session" key={`${session.programId}-${session.date}`}>
+                  <div><strong>{session.title}</strong><span>{new Date(session.date).toLocaleDateString("da-DK", { day: "numeric", month: "short", year: "numeric" })} · {session.sets.length}/{session.plannedSets} sæt</span></div>
+                  <div>{session.sets.map((set) => <span key={set.setIndex}>Sæt {set.setIndex + 1}: <b>{set.weight} kg × {set.reps}</b> · {set.rir} RIR</span>)}</div>
+                </div>
+              ))}
+            </article>
+          )}
           <button className="session-video-button" onClick={() => setVideoExercise(currentExercise.name)}>
             <span>{exerciseVideos[currentExercise.name] ? "▶" : "⌕"}</span>
             <span><strong>{exerciseVideos[currentExercise.name] ? "Se teknikvideo" : "Find teknikvideo"}</strong><small>Åbnes uden at nulstille træningen</small></span>

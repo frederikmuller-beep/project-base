@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildHistoricalLoadRecommendation,
   buildLoadSuggestion,
   calculateActualWorkload,
   calculatePlannedWorkload,
@@ -50,4 +51,25 @@ test("suggests a conservative increase only after all three safety signals are p
   const held = buildLoadSuggestion({ currentWeight: 70, recentSets, readinessScore: 82, pain: true, hasRemainingSet: true });
   assert.equal(held.decision, "hold");
   assert.match(held.reasons.join(" "), /Smerte/);
+});
+
+test("uses the latest completed exercise prescription to set the next starting weight", () => {
+  const completeHistory = [{
+    programId: "previous",
+    title: "Tidligere pas",
+    date: "2026-08-20 10:00:00",
+    plannedSets: 3,
+    sets: [0, 1, 2].map((setIndex) => ({ setIndex, weight: "70", reps: "5", rir: "3", techniqueQuality: "good" })),
+  }];
+  const increase = buildHistoricalLoadRecommendation({ plannedWeight: 65, history: completeHistory });
+  assert.equal(increase.decision, "increase");
+  assert.equal(increase.proposedWeight, 72.5);
+
+  const partial = buildHistoricalLoadRecommendation({ plannedWeight: 65, history: [{ ...completeHistory[0], sets: completeHistory[0].sets.slice(0, 2) }] });
+  assert.equal(partial.decision, "hold");
+  assert.equal(partial.proposedWeight, 70);
+
+  const difficult = buildHistoricalLoadRecommendation({ plannedWeight: 65, history: [{ ...completeHistory[0], sets: completeHistory[0].sets.map((set) => ({ ...set, rir: "1", techniqueQuality: "poor" })) }] });
+  assert.equal(difficult.decision, "decrease");
+  assert.equal(difficult.proposedWeight, 67.5);
 });

@@ -28,6 +28,30 @@ export type LoadSuggestion = {
   reasons: string[];
 };
 
+export type ExerciseHistorySet = {
+  setIndex: number;
+  weight: string;
+  reps: string;
+  rir: string;
+  techniqueQuality: TechniqueQuality | null;
+};
+
+export type ExerciseHistorySession = {
+  programId: string;
+  title: string;
+  date: string;
+  plannedSets: number;
+  sets: ExerciseHistorySet[];
+};
+
+export type HistoricalLoadRecommendation = {
+  decision: "increase" | "hold" | "decrease" | "planned";
+  proposedWeight: number;
+  previousWeight: number | null;
+  headline: string;
+  reasons: string[];
+};
+
 export const majorStrengthLifts = [
   { id: "clean", label: "Clean", exerciseNames: ["Clean"] },
   { id: "power-clean", label: "Power clean", exerciseNames: ["Power clean"] },
@@ -141,6 +165,76 @@ export const calculateActualWorkload = (sessions: Array<{ program: ProgramDay; l
 };
 
 const increaseForWeight = (weight: number) => weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
+
+const roundTrainingWeight = (weight: number) => {
+  const increment = increaseForWeight(weight);
+  return Math.max(0, Math.round(weight / increment) * increment);
+};
+
+export const buildHistoricalLoadRecommendation = ({
+  plannedWeight,
+  history,
+}: {
+  plannedWeight: number;
+  history: ExerciseHistorySession[];
+}): HistoricalLoadRecommendation => {
+  const previous = history[0];
+  const validSets = previous?.sets.filter((set) => Number.parseFloat(set.weight) > 0) ?? [];
+  if (!previous || validSets.length === 0) {
+    return {
+      decision: "planned",
+      proposedWeight: roundTrainingWeight(plannedWeight),
+      previousWeight: null,
+      headline: "Start med den planlagte vægt",
+      reasons: ["Der er endnu ingen tidligere sæt i denne øvelse"],
+    };
+  }
+
+  const latestWeight = Number.parseFloat(validSets.at(-1)!.weight);
+  const completedPrescription = validSets.length >= previous.plannedSets;
+  const rirValues = validSets.map((set) => Number.parseFloat(set.rir)).filter(Number.isFinite);
+  const averageRir = rirValues.length > 0 ? rirValues.reduce((sum, value) => sum + value, 0) / rirValues.length : null;
+  const techniquePoor = validSets.some((set) => set.techniqueQuality === "poor");
+  const techniqueGood = validSets.length >= 2 && validSets.every((set) => set.techniqueQuality === "good");
+  const increment = increaseForWeight(latestWeight);
+
+  if (techniquePoor || (averageRir !== null && averageRir < 1.5)) {
+    return {
+      decision: "decrease",
+      proposedWeight: roundTrainingWeight(Math.max(0, latestWeight - increment)),
+      previousWeight: latestWeight,
+      headline: "BASE foreslår en lidt lavere startvægt",
+      reasons: [
+        techniquePoor ? "Teknikken var ikke god i mindst ét tidligere sæt" : "Den seneste træning lå under 1,5 RIR i gennemsnit",
+        `${validSets.length} af ${previous.plannedSets} sæt blev registreret sidst`,
+      ],
+    };
+  }
+
+  if (completedPrescription && techniqueGood && averageRir !== null && averageRir >= 3) {
+    return {
+      decision: "increase",
+      proposedWeight: roundTrainingWeight(latestWeight + increment),
+      previousWeight: latestWeight,
+      headline: "BASE foreslår en forsigtig stigning",
+      reasons: [
+        `Alle ${previous.plannedSets} planlagte sæt blev gennemført`,
+        `${averageRir.toLocaleString("da-DK", { maximumFractionDigits: 1 })} RIR i gennemsnit og god teknik`,
+      ],
+    };
+  }
+
+  return {
+    decision: "hold",
+    proposedWeight: roundTrainingWeight(latestWeight),
+    previousWeight: latestWeight,
+    headline: "BASE foreslår samme startvægt som sidst",
+    reasons: [
+      completedPrescription ? "Den seneste træning blev gennemført uden et tydeligt signal til stigning" : `${validSets.length} af ${previous.plannedSets} sæt blev gennemført sidst`,
+      averageRir === null ? "RIR-data var ikke komplette" : `${averageRir.toLocaleString("da-DK", { maximumFractionDigits: 1 })} RIR i gennemsnit`,
+    ],
+  };
+};
 
 export const buildLoadSuggestion = ({
   currentWeight,
