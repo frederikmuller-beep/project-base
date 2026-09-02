@@ -58,6 +58,9 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /Fjern sæt/);
   assert.match(page, /Tilføj sæt/);
   assert.match(page, /minimumCurrentExerciseSets/);
+  assert.match(page, /Tilføj øvelse til dagen/);
+  assert.match(page, /addExerciseToPlannedDay/);
+  assert.match(page, /dayExerciseProgramId/);
 
   assert.equal((programData.match(/programId: "/g) ?? []).length, 11);
   assert.equal((programData.match(/week: 1, day/g) ?? []).length, 7);

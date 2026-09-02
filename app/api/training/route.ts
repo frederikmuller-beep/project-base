@@ -66,11 +66,18 @@ export async function GET() {
         status: trainingSessions.status,
         completedSets: trainingSessions.completedSets,
         plannedSets: trainingSessions.plannedSets,
+        customExercises: trainingSessions.customExercises,
       })
       .from(trainingSessions)
       .where(eq(trainingSessions.testerId, testerId));
 
-    return Response.json({ sessions });
+    return Response.json({ sessions: sessions.map((session) => ({
+      programId: session.programId,
+      status: session.status,
+      completedSets: session.completedSets,
+      plannedSets: session.plannedSets,
+      exercises: session.customExercises ? parseSessionExercises(session.customExercises, []) : undefined,
+    })) });
   } catch (error) {
     if (error instanceof Error && error.message === "TESTER_REQUIRED") {
       return Response.json({ error: "Tilslut dit tester-ID først." }, { status: 401 });

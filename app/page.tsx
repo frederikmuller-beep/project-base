@@ -36,6 +36,7 @@ type SessionProgress = {
   status: "active" | "completed";
   completedSets: number;
   plannedSets: number;
+  exercises?: SessionExercise[];
 };
 
 type TrainingSetLog = {
@@ -127,6 +128,8 @@ export default function Home() {
   const [exerciseChangeMode, setExerciseChangeMode] = useState<"replace" | "add" | null>(null);
   const [sessionExerciseSearch, setSessionExerciseSearch] = useState("");
   const [customizingSession, setCustomizingSession] = useState(false);
+  const [dayExerciseProgramId, setDayExerciseProgramId] = useState<string | null>(null);
+  const [dayExerciseSearch, setDayExerciseSearch] = useState("");
   const sessionLogsRef = useRef(sessionLogs);
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => {
@@ -550,6 +553,31 @@ export default function Home() {
     }
   };
 
+  const addExerciseToPlannedDay = async (day: ProgramDay, exercise: ExerciseDefinition) => {
+    if (!day.programId || customizingSession) return;
+    const currentExercises = progress[day.programId]?.exercises ?? day.exercises;
+    if (currentExercises.length >= 12 || currentExercises.some((item) => item.name === exercise.name)) return;
+    const nextPlan = [...currentExercises, definitionToSessionExercise(exercise)];
+    setCustomizingSession(true);
+    setIdentityError("");
+    try {
+      const response = await fetch("/api/training", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "customize", programId: day.programId, exerciseNames: nextPlan.map((item) => item.name), exerciseSets: nextPlan.map((item) => item.sets) }),
+      });
+      const data = (await response.json()) as SessionProgress & { error?: string };
+      if (!response.ok || !data.exercises) throw new Error(data.error ?? "Øvelsen kunne ikke tilføjes til dagen.");
+      setProgress((current) => ({ ...current, [data.programId]: data }));
+      setDayExerciseProgramId(null);
+      setDayExerciseSearch("");
+    } catch (error) {
+      setIdentityError(error instanceof Error ? error.message : "Øvelsen kunne ikke tilføjes til dagen.");
+    } finally {
+      setCustomizingSession(false);
+    }
+  };
+
   const openLoggedSet = (log: TrainingSetLog) => {
     if (!editingSetKey) setResumePosition({ exerciseIndex, setIndex });
     setEditingSetKey(setLogKey(log.exerciseIndex, log.setIndex));
@@ -849,7 +877,12 @@ export default function Home() {
           <div className="week-list">
             {selectedWeekPlan.map((day) => {
               const dayProgress = day.programId ? progress[day.programId] : undefined;
-              const daySets = countProgramSets(day);
+              const dayExercises = dayProgress?.exercises?.length ? dayProgress.exercises : day.exercises;
+              const effectiveDay = { ...day, exercises: dayExercises };
+              const daySets = countProgramSets(effectiveDay);
+              const dayExerciseOptions = day.programId === dayExerciseProgramId
+                ? availableSessionExercises(activeProfile).filter((exercise) => !dayExercises.some((item) => item.name === exercise.name) && (!dayExerciseSearch.trim() || `${exercise.name} ${exercise.target}`.toLocaleLowerCase("da-DK").includes(dayExerciseSearch.trim().toLocaleLowerCase("da-DK")))).slice(0, 16)
+                : [];
               return (
               <article className={`week-day ${day.status}`} key={`${day.week}-${day.day}`}>
                 <div className="week-day-head">
@@ -862,9 +895,9 @@ export default function Home() {
                   <div><h3>{day.title}</h3><p>{day.focus}</p></div>
                   {day.duration > 0 && <strong>{day.distanceMeters ? `${day.distanceMeters.toLocaleString("da-DK")} m · ` : ""}{day.duration} min</strong>}
                 </div>
-                {day.exercises.length > 0 && (
+                {dayExercises.length > 0 && (
                   <div className="week-exercises">
-                    {day.exercises.map((exercise) => {
+                    {dayExercises.map((exercise) => {
                       return (
                         <button key={exercise.name} onClick={() => setVideoExercise(exercise.name)}>
                           <span>{exercise.programRole ? `${programRoleLabel(exercise.programRole)} · ` : ""}{exercise.name} · {exercise.sets} × {exercise.plannedReps}{exercise.restSeconds ? ` · ${exercise.restSeconds} sek pause` : ""}{exercise.effortTarget ? ` · ${exercise.effortTarget}` : ""}</span><b>{exerciseVideos[exercise.name] ? "▶" : "⌕"}</b>
@@ -874,14 +907,25 @@ export default function Home() {
                   </div>
                 )}
                 {day.programId && dayProgress?.status !== "completed" && (
-                  <button className="open-program" onClick={() => startPlannedSession(day)}>
+                  <button className="add-exercise-to-day" onClick={() => { setDayExerciseProgramId(dayExerciseProgramId === day.programId ? null : day.programId); setDayExerciseSearch(""); }} disabled={dayExercises.length >= 12}>
+                    ＋ Tilføj øvelse til dagen
+                  </button>
+                )}
+                {day.programId === dayExerciseProgramId && (
+                  <div className="day-exercise-picker">
+                    <input value={dayExerciseSearch} onChange={(event) => setDayExerciseSearch(event.target.value)} placeholder="Søg efter øvelse eller muskelgruppe" />
+                    <div>{dayExerciseOptions.map((exercise) => <button key={exercise.name} onClick={() => addExerciseToPlannedDay(effectiveDay, exercise)} disabled={customizingSession}><span><strong>{exercise.name}</strong><small>{exercise.target}</small></span><b>Tilføj +</b></button>)}</div>
+                  </div>
+                )}
+                {day.programId && dayProgress?.status !== "completed" && (
+                  <button className="open-program" onClick={() => startPlannedSession(effectiveDay)}>
                     {dayProgress ? `Fortsæt pas · ${dayProgress.completedSets}/${daySets} sæt →` : "Start dette pas →"}
                   </button>
                 )}
                 {dayProgress?.status === "completed" && (
                   <div className="program-complete">
                     <span>✓ Pas gennemført og gemt</span>
-                    <button onClick={() => startPlannedSession(day)}>Se og ret udførte sæt</button>
+                    <button onClick={() => startPlannedSession(effectiveDay)}>Se og ret udførte sæt</button>
                   </div>
                 )}
               </article>
