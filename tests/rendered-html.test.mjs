@@ -55,6 +55,9 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /5 ALTERNATIVER/);
   assert.match(page, /Tilføj ekstra øvelse/);
   assert.match(page, /customizeTodaySession/);
+  assert.match(page, /Fjern sæt/);
+  assert.match(page, /Tilføj sæt/);
+  assert.match(page, /minimumCurrentExerciseSets/);
 
   assert.equal((programData.match(/programId: "/g) ?? []).length, 11);
   assert.equal((programData.match(/week: 1, day/g) ?? []).length, 7);
@@ -204,6 +207,8 @@ test("persists each tester's planned-session progress, custom exercises and set 
   assert.match(trainingRoute, /buildLoadSuggestion/);
   assert.match(trainingRoute, /payload\.action === "customize"/);
   assert.match(trainingRoute, /customExercises: JSON\.stringify/);
+  assert.match(trainingRoute, /exerciseSets/);
+  assert.match(trainingRoute, /mellem 1 og 20 sæt/);
   assert.match(migration, /CREATE TABLE `training_sessions`/);
   assert.match(migration, /CREATE TABLE `training_set_logs`/);
   assert.match(effortMigration, /ADD `effort_metric` text DEFAULT 'rpe' NOT NULL/);

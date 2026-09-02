@@ -210,6 +210,7 @@ export default function Home() {
     return availableSessionExercises(activeProfile).filter((exercise) => !chosen.has(exercise.name) && (!query || `${exercise.name} ${exercise.target}`.toLocaleLowerCase("da-DK").includes(query))).slice(0, 20);
   }, [activeProfile, sessionExerciseSearch, sessionPlan]);
   const currentExerciseHasLogs = Object.values(sessionLogs).some((log) => log.exerciseIndex === exerciseIndex);
+  const minimumCurrentExerciseSets = Math.max(1, ...Object.values(sessionLogs).filter((log) => log.exerciseIndex === exerciseIndex).map((log) => log.setIndex + 1));
   const libraryCategories = useMemo<LibraryCategory[]>(
     () => ["Alle", ...Array.from(new Set(athleteExerciseLibrary.map((exercise) => exercise.category)))],
     [athleteExerciseLibrary],
@@ -513,13 +514,14 @@ export default function Home() {
 
   const customizeTodaySession = async (nextPlan: SessionExercise[], changedIndex?: number) => {
     if (!sessionProgramId || customizingSession) return;
+    const replacedCurrentExercise = changedIndex === exerciseIndex && nextPlan[exerciseIndex]?.name !== currentExercise.name;
     setCustomizingSession(true);
     setSaveError("");
     try {
       const response = await fetch("/api/training", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "customize", programId: sessionProgramId, exerciseNames: nextPlan.map((exercise) => exercise.name) }),
+        body: JSON.stringify({ action: "customize", programId: sessionProgramId, exerciseNames: nextPlan.map((exercise) => exercise.name), exerciseSets: nextPlan.map((exercise) => exercise.sets) }),
       });
       const data = (await response.json()) as SessionProgress & { exercises?: SessionExercise[]; error?: string };
       if (!response.ok || !data.exercises) throw new Error(data.error ?? "Træningen kunne ikke tilpasses.");
@@ -527,13 +529,16 @@ export default function Home() {
       setProgress((current) => ({ ...current, [data.programId]: data }));
       if (changedIndex === exerciseIndex) {
         const replacement = data.exercises[exerciseIndex];
-        setWeight(replacement.defaultWeight);
-        setReps(replacement.plannedReps);
-        setRpe(defaultEffortValue(replacement));
-        setTechniqueQuality("");
-        setExerciseHistory(null);
-        setHistoryOpen(false);
-        setHistoryLoading(replacement.tracking !== "distance");
+        setSetIndex((current) => Math.min(current, replacement.sets - 1));
+        if (replacedCurrentExercise) {
+          setWeight(replacement.defaultWeight);
+          setReps(replacement.plannedReps);
+          setRpe(defaultEffortValue(replacement));
+          setTechniqueQuality("");
+          setExerciseHistory(null);
+          setHistoryOpen(false);
+          setHistoryLoading(replacement.tracking !== "distance");
+        }
         setRestSecondsRemaining(replacement.restSeconds ?? 90);
       }
       setExerciseChangeMode(null);
@@ -1099,6 +1104,17 @@ export default function Home() {
           <div className="session-exercise-actions">
             <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={currentExerciseHasLogs || customizingSession}>Skift øvelse</button>
             <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "add" ? null : "add")} disabled={sessionPlan.length >= 12 || customizingSession}>+ Tilføj ekstra øvelse</button>
+          </div>
+          <div className="session-set-controls">
+            <button
+              onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets - 1 } : exercise), exerciseIndex)}
+              disabled={currentExercise.sets <= minimumCurrentExerciseSets || customizingSession}
+            >− Fjern sæt</button>
+            <strong>{currentExercise.sets} sæt</strong>
+            <button
+              onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets + 1 } : exercise), exerciseIndex)}
+              disabled={currentExercise.sets >= 20 || customizingSession}
+            >+ Tilføj sæt</button>
           </div>
           {currentExerciseHasLogs && <p className="session-customize-note">Øvelsen kan ikke skiftes, efter et sæt er gemt. Dine registreringer bevares.</p>}
           {exerciseChangeMode === "replace" && (

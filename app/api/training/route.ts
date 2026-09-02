@@ -23,6 +23,7 @@ type TrainingPayload = {
   readinessScore?: number | null;
   pain?: boolean | null;
   exerciseNames?: string[];
+  exerciseSets?: number[];
 };
 
 const sessionSetLogs = async (sessionId: string) => getDb()
@@ -137,17 +138,21 @@ export async function POST(request: Request) {
 
     if (payload.action === "customize") {
       const names = payload.exerciseNames;
+      const requestedSets = payload.exerciseSets;
       if (!Array.isArray(names) || names.length === 0 || names.length > 12 || names.some((name) => typeof name !== "string" || name.length > 120)) {
         return Response.json({ error: "Vælg mellem 1 og 12 gyldige øvelser." }, { status: 400 });
+      }
+      if (!Array.isArray(requestedSets) || requestedSets.length !== names.length || requestedSets.some((sets) => !Number.isInteger(sets) || sets < 1 || sets > 20)) {
+        return Response.json({ error: "Hver øvelse skal have mellem 1 og 20 sæt." }, { status: 400 });
       }
       const definitions = new Map(exerciseLibrary
         .filter((exercise) => exercise.visibility !== "coach_only" && (!exercise.sports?.length || exercise.sports.includes(participant.trainingProfile!)))
         .map((exercise) => [exercise.name, exercise]));
       const customized = names.map((name, index) => {
         const existing = sessionExercises[index];
-        if (existing?.name === name) return existing;
+        if (existing?.name === name) return { ...existing, sets: requestedSets[index], detail: existing.detail.replace(/^\d+\s*×/, `${requestedSets[index]} ×`) };
         const definition = definitions.get(name);
-        return definition ? definitionToSessionExercise(definition) : null;
+        return definition ? { ...definitionToSessionExercise(definition), sets: requestedSets[index] } : null;
       });
       if (customized.some((exercise) => !exercise)) {
         return Response.json({ error: "En af øvelserne findes ikke i biblioteket." }, { status: 400 });
