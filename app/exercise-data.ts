@@ -300,7 +300,7 @@ const inferredTags = (exercise: ExerciseDefinition): ExerciseFocusTag[] => {
 const normalizeExercise = (exercise: ExerciseDefinition): ExerciseDefinition => ({
   ...exercise,
   reps: clarifyUnilateralReps(exercise.name, exercise.reps),
-  sports: exercise.sports ?? (exercise.category === "Svømning" || exercise.category === "Svømmestyrke" ? ["long_distance", "middle_distance", "sprint"] : ["weightlifting", "recreational"]),
+  sports: exercise.sports ?? (exercise.category === "Svømning" || exercise.category === "Svømmestyrke" ? ["long_distance", "middle_distance", "sprint", "triathlon", "ironman"] : ["weightlifting", "recreational"]),
   difficulty: exercise.difficulty ?? "Øvet",
   visibility: exercise.visibility ?? (exercise.category === "Svømning" ? "coach_only" : "athlete"),
   focus: exercise.focus ?? exercise.target.split("·")[0].trim(),
