@@ -4,6 +4,7 @@ import { coachTrainingPlans, testParticipants, trainingSessions, trainingSetLogs
 import { coachPlanToProgramDay } from "../../../../lib/coach-plans";
 import { buildHistoricalLoadRecommendation, type ExerciseHistorySession } from "../../../../lib/training-analytics";
 import { getTesterId } from "../../../../lib/tester-session";
+import { parseSessionExercises } from "../../../../lib/session-exercises";
 import type { ProgramDay } from "../../../program-data";
 import { getTrainingProgram, trainingProfileOptions, type TrainingProfile } from "../../../swim-program-data";
 
@@ -47,7 +48,9 @@ export async function GET(request: Request) {
 
     const coachProgramMap = new Map(coachRows.map((row) => [row.id, coachPlanToProgramDay(row)]));
     const currentProgram = resolveStaticProgram(profile, programId) ?? coachProgramMap.get(programId);
-    const currentExercise = currentProgram?.exercises[exerciseIndex];
+    const currentSession = sessions.find((session) => session.programId === programId);
+    const currentExercises = currentProgram ? parseSessionExercises(currentSession?.customExercises, currentProgram.exercises) : [];
+    const currentExercise = currentExercises[exerciseIndex];
     if (!currentProgram || !currentExercise || currentExercise.tracking === "distance") {
       return Response.json({ history: [], recommendation: null }, { headers: { "cache-control": "private, no-store" } });
     }
@@ -69,11 +72,12 @@ export async function GET(request: Request) {
       if (session.programId === programId) continue;
       const historicalProgram: ProgramDay | undefined = resolveStaticProgram(profile, session.programId) ?? coachProgramMap.get(session.programId);
       if (!historicalProgram) continue;
-      const matchingIndexes = historicalProgram.exercises
+      const historicalExercises = parseSessionExercises(session.customExercises, historicalProgram.exercises);
+      const matchingIndexes = historicalExercises
         .map((exercise, index) => normalizeExerciseName(exercise.name) === wantedName ? index : -1)
         .filter((index) => index >= 0);
       for (const matchingIndex of matchingIndexes) {
-        const exercise = historicalProgram.exercises[matchingIndex];
+        const exercise = historicalExercises[matchingIndex];
         const matchingLogs = (logsBySession.get(session.id) ?? [])
           .filter((log) => log.exerciseIndex === matchingIndex && (log.effortMetric ?? "rir") === "rir")
           .map((log) => ({ setIndex: log.setIndex, weight: log.weight, reps: log.reps, rir: log.rpe, techniqueQuality: log.techniqueQuality }));

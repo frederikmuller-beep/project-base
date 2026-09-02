@@ -5,6 +5,7 @@ import { coachPlanToProgramDay } from "../../../../lib/coach-plans";
 import { hasPrivateAccess, getPrivateAccessSecret } from "../../../../lib/private-access";
 import { normalizeTesterId } from "../../../../lib/tester-session";
 import { parseEffortRepCount } from "../../../../lib/training-analytics";
+import { parseSessionExercises } from "../../../../lib/session-exercises";
 import { getTrainingProgram, swimProfileLabel, type TrainingProfile } from "../../../swim-program-data";
 
 const testCoachId = "test-coach-1";
@@ -59,9 +60,10 @@ export async function GET(request: Request) {
         .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .map((session) => {
           const program = customPrograms.get(session.programId) ?? (trainingProfile ? getTrainingProgram(trainingProfile as TrainingProfile, session.programId) : undefined);
+          const exercises = parseSessionExercises(session.customExercises, program?.exercises ?? []);
           const sessionLogs = logsBySession.get(session.id) ?? [];
           for (const setLog of sessionLogs) {
-            const exercise = program?.exercises[setLog.exerciseIndex];
+            const exercise = exercises[setLog.exerciseIndex];
             if (exercise?.tracking === "distance") distanceMeters += Number.parseFloat(setLog.reps) || 0;
             else strengthVolumeKg += (Number.parseFloat(setLog.weight) || 0) * parseEffortRepCount(setLog.reps);
           }
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
             startedAt: session.startedAt,
             completedAt: session.completedAt,
             sets: sessionLogs.map((setLog) => ({
-              exerciseName: program?.exercises[setLog.exerciseIndex]?.name ?? `Øvelse ${setLog.exerciseIndex + 1}`,
+              exerciseName: exercises[setLog.exerciseIndex]?.name ?? `Øvelse ${setLog.exerciseIndex + 1}`,
               setNumber: setLog.setIndex + 1,
               weight: setLog.weight,
               reps: setLog.reps,

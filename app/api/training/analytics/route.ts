@@ -13,6 +13,7 @@ import {
   type AthleteDashboardData,
 } from "../../../../lib/training-analytics";
 import { getTesterId } from "../../../../lib/tester-session";
+import { parseSessionExercises } from "../../../../lib/session-exercises";
 import { getTrainingPlan, getTrainingProgram } from "../../../swim-program-data";
 
 const unavailableMessage = (error: unknown) => {
@@ -50,7 +51,7 @@ export async function GET() {
       if (!resolvedProgram) return [];
       return [{
         session,
-        program: resolvedProgram,
+        program: { ...resolvedProgram, exercises: parseSessionExercises(session.customExercises, resolvedProgram.exercises) },
         logs: logs.filter((log) => log.sessionId === session.id) as AnalyticsSetLog[],
       }];
     });

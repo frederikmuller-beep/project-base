@@ -53,6 +53,7 @@ export const trainingSessions = sqliteTable("training_sessions", {
   status: text("status", { enum: ["active", "completed"] }).notNull().default("active"),
   plannedSets: integer("planned_sets").notNull(),
   completedSets: integer("completed_sets").notNull().default(0),
+  customExercises: text("custom_exercises"),
   startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   completedAt: text("completed_at"),
 }, (table) => [

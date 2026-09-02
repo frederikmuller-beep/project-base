@@ -51,6 +51,10 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /TESTPERIODE/);
   assert.match(page, /Næste øvelse/);
   assert.match(page, /Afslut træning/);
+  assert.match(page, /Skift øvelse/);
+  assert.match(page, /5 ALTERNATIVER/);
+  assert.match(page, /Tilføj ekstra øvelse/);
+  assert.match(page, /customizeTodaySession/);
 
   assert.equal((programData.match(/programId: "/g) ?? []).length, 11);
   assert.equal((programData.match(/week: 1, day/g) ?? []).length, 7);
@@ -172,8 +176,8 @@ test("persists feedback through the declared D1 database", async () => {
   assert.match(migration, /CREATE TABLE `feedback_responses`/);
 });
 
-test("persists each tester's planned-session progress and set logs in D1", async () => {
-  const [schema, participantRoute, trainingRoute, testerSession, migration, effortMigration, techniqueMigration] = await Promise.all([
+test("persists each tester's planned-session progress, custom exercises and set logs in D1", async () => {
+  const [schema, participantRoute, trainingRoute, testerSession, migration, effortMigration, techniqueMigration, customExerciseMigration] = await Promise.all([
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/participant/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/training/route.ts", import.meta.url), "utf8"),
@@ -181,6 +185,7 @@ test("persists each tester's planned-session progress and set logs in D1", async
     readFile(new URL("../drizzle/0001_dapper_quasimodo.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0007_cute_captain_marvel.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0008_nostalgic_thena.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0010_previous_nova.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /trainingSessions/);
@@ -197,10 +202,13 @@ test("persists each tester's planned-session progress and set logs in D1", async
   assert.match(trainingRoute, /Vælg pulszone 1–5/);
   assert.match(trainingRoute, /techniqueQuality/);
   assert.match(trainingRoute, /buildLoadSuggestion/);
+  assert.match(trainingRoute, /payload\.action === "customize"/);
+  assert.match(trainingRoute, /customExercises: JSON\.stringify/);
   assert.match(migration, /CREATE TABLE `training_sessions`/);
   assert.match(migration, /CREATE TABLE `training_set_logs`/);
   assert.match(effortMigration, /ADD `effort_metric` text DEFAULT 'rpe' NOT NULL/);
   assert.match(techniqueMigration, /ADD `technique_quality` text/);
+  assert.match(customExerciseMigration, /ADD `custom_exercises` text/);
 });
 
 test("builds a private athlete dashboard from persisted training data", async () => {

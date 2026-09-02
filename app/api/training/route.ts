@@ -6,9 +6,12 @@ import { countProgramSets } from "../../program-data";
 import { getTrainingProgram } from "../../swim-program-data";
 import { getTesterId } from "../../../lib/tester-session";
 import { buildLoadSuggestion, type TechniqueQuality } from "../../../lib/training-analytics";
+import { parseSessionExercises } from "../../../lib/session-exercises";
+import { exerciseLibrary } from "../../exercise-data";
+import { definitionToSessionExercise } from "../../exercise-alternatives";
 
 type TrainingPayload = {
-  action?: "start" | "log_set";
+  action?: "start" | "log_set" | "customize";
   programId?: string;
   exerciseIndex?: number;
   setIndex?: number;
@@ -19,6 +22,7 @@ type TrainingPayload = {
   techniqueQuality?: TechniqueQuality;
   readinessScore?: number | null;
   pain?: boolean | null;
+  exerciseNames?: string[];
 };
 
 const sessionSetLogs = async (sessionId: string) => getDb()
@@ -98,14 +102,14 @@ export async function POST(request: Request) {
       return Response.json({ error: "Vælg et gyldigt planlagt pas." }, { status: 400 });
     }
 
-    const plannedSets = countProgramSets(program);
+    const initialPlannedSets = countProgramSets(program);
     const sessionId = crypto.randomUUID();
 
     await db.insert(trainingSessions).values({
       id: sessionId,
       testerId,
       programId: program.programId,
-      plannedSets,
+      plannedSets: initialPlannedSets,
     }).onConflictDoNothing();
 
     const [session] = await db
@@ -116,6 +120,9 @@ export async function POST(request: Request) {
 
     if (!session) throw new Error("SESSION_NOT_CREATED");
 
+    const plannedSets = session.plannedSets;
+    const sessionExercises = parseSessionExercises(session.customExercises, program.exercises);
+
     if (payload.action === "start") {
       const sets = await sessionSetLogs(session.id);
       return Response.json({
@@ -123,8 +130,45 @@ export async function POST(request: Request) {
         status: session.status,
         completedSets: session.completedSets,
         plannedSets: session.plannedSets,
+        exercises: sessionExercises,
         sets,
       });
+    }
+
+    if (payload.action === "customize") {
+      const names = payload.exerciseNames;
+      if (!Array.isArray(names) || names.length === 0 || names.length > 12 || names.some((name) => typeof name !== "string" || name.length > 120)) {
+        return Response.json({ error: "Vælg mellem 1 og 12 gyldige øvelser." }, { status: 400 });
+      }
+      const definitions = new Map(exerciseLibrary
+        .filter((exercise) => exercise.visibility !== "coach_only" && (!exercise.sports?.length || exercise.sports.includes(participant.trainingProfile!)))
+        .map((exercise) => [exercise.name, exercise]));
+      const customized = names.map((name, index) => {
+        const existing = sessionExercises[index];
+        if (existing?.name === name) return existing;
+        const definition = definitions.get(name);
+        return definition ? definitionToSessionExercise(definition) : null;
+      });
+      if (customized.some((exercise) => !exercise)) {
+        return Response.json({ error: "En af øvelserne findes ikke i biblioteket." }, { status: 400 });
+      }
+      const loggedSets = await sessionSetLogs(session.id);
+      const changesLoggedExercise = loggedSets.some((log) => customized[log.exerciseIndex]?.name !== sessionExercises[log.exerciseIndex]?.name || log.setIndex >= (customized[log.exerciseIndex]?.sets ?? 0));
+      if (changesLoggedExercise) {
+        return Response.json({ error: "En øvelse med gemte sæt kan ikke udskiftes." }, { status: 409 });
+      }
+      const exercises = customized as typeof sessionExercises;
+      const customizedPlannedSets = exercises.reduce((total, exercise) => total + exercise.sets, 0);
+      const completedSets = loggedSets.length;
+      const status = completedSets >= customizedPlannedSets ? "completed" : "active";
+      await db.update(trainingSessions).set({
+        customExercises: JSON.stringify(exercises),
+        plannedSets: customizedPlannedSets,
+        completedSets,
+        status,
+        completedAt: status === "completed" ? sql`CURRENT_TIMESTAMP` : null,
+      }).where(eq(trainingSessions.id, session.id));
+      return Response.json({ programId: session.programId, status, completedSets, plannedSets: customizedPlannedSets, exercises, sets: loggedSets });
     }
 
     if (payload.action !== "log_set") {
@@ -133,7 +177,7 @@ export async function POST(request: Request) {
 
     const exerciseIndex = payload.exerciseIndex;
     const setIndex = payload.setIndex;
-    const plannedExercise = Number.isInteger(exerciseIndex) ? program.exercises[exerciseIndex as number] : undefined;
+    const plannedExercise = Number.isInteger(exerciseIndex) ? sessionExercises[exerciseIndex as number] : undefined;
     if (!plannedExercise || !Number.isInteger(setIndex) || (setIndex as number) < 0 || (setIndex as number) >= plannedExercise.sets) {
       return Response.json({ error: "Sættet findes ikke i det planlagte pas." }, { status: 400 });
     }

@@ -5,6 +5,7 @@ import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../li
 import type { AthleteDashboardData, ExerciseHistorySession, HistoricalLoadRecommendation, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
 import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "./exercise-data";
+import { availableSessionExercises, definitionToSessionExercise, fiveExerciseAlternatives } from "./exercise-alternatives";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, getWeekProgression, type ProgramDay, type SessionExercise } from "./program-data";
@@ -123,6 +124,9 @@ export default function Home() {
   const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [exerciseChangeMode, setExerciseChangeMode] = useState<"replace" | "add" | null>(null);
+  const [sessionExerciseSearch, setSessionExerciseSearch] = useState("");
+  const [customizingSession, setCustomizingSession] = useState(false);
   const sessionLogsRef = useRef(sessionLogs);
   const activeProfile = trainingProfile ?? profileDraft;
   const activePlan = useMemo(() => {
@@ -199,6 +203,13 @@ export default function Home() {
     () => exerciseLibrary.filter((exercise) => exercise.visibility !== "coach_only"),
     [],
   );
+  const exerciseAlternatives = useMemo(() => currentExercise ? fiveExerciseAlternatives(currentExercise, activeProfile) : [], [currentExercise, activeProfile]);
+  const addableSessionExercises = useMemo(() => {
+    const query = sessionExerciseSearch.trim().toLocaleLowerCase("da-DK");
+    const chosen = new Set(sessionPlan.map((exercise) => exercise.name));
+    return availableSessionExercises(activeProfile).filter((exercise) => !chosen.has(exercise.name) && (!query || `${exercise.name} ${exercise.target}`.toLocaleLowerCase("da-DK").includes(query))).slice(0, 20);
+  }, [activeProfile, sessionExerciseSearch, sessionPlan]);
+  const currentExerciseHasLogs = Object.values(sessionLogs).some((log) => log.exerciseIndex === exerciseIndex);
   const libraryCategories = useMemo<LibraryCategory[]>(
     () => ["Alle", ...Array.from(new Set(athleteExerciseLibrary.map((exercise) => exercise.category)))],
     [athleteExerciseLibrary],
@@ -384,6 +395,7 @@ export default function Home() {
     setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
     setRestSecondsRemaining(90); setRestRunning(false);
     setExerciseHistory(null); setHistoryOpen(false); setHistoryLoading(false);
+    setExerciseChangeMode(null); setSessionExerciseSearch(""); setCustomizingSession(false);
   };
 
   const startSession = (
@@ -436,10 +448,10 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "start", programId: day.programId }),
       });
-      const data = (await response.json()) as SessionProgress & { sets?: TrainingSetLog[]; error?: string };
+      const data = (await response.json()) as SessionProgress & { sets?: TrainingSetLog[]; exercises?: SessionExercise[]; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Passet kunne ikke åbnes.");
       setProgress((current) => ({ ...current, [data.programId]: data }));
-      startSession(useAdjustment, day.exercises, day.programId, data.completedSets, data.sets ?? []);
+      startSession(useAdjustment, data.exercises ?? day.exercises, day.programId, data.completedSets, data.sets ?? []);
     } catch (error) {
       setIdentityError(error instanceof Error ? error.message : "Passet kunne ikke åbnes.");
       setView("week");
@@ -496,6 +508,40 @@ export default function Home() {
       setSaveError(error instanceof Error ? error.message : "Sættet kunne ikke gemmes.");
     } finally {
       setSavingSet(false);
+    }
+  };
+
+  const customizeTodaySession = async (nextPlan: SessionExercise[], changedIndex?: number) => {
+    if (!sessionProgramId || customizingSession) return;
+    setCustomizingSession(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/training", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "customize", programId: sessionProgramId, exerciseNames: nextPlan.map((exercise) => exercise.name) }),
+      });
+      const data = (await response.json()) as SessionProgress & { exercises?: SessionExercise[]; error?: string };
+      if (!response.ok || !data.exercises) throw new Error(data.error ?? "Træningen kunne ikke tilpasses.");
+      setSessionPlan(data.exercises);
+      setProgress((current) => ({ ...current, [data.programId]: data }));
+      if (changedIndex === exerciseIndex) {
+        const replacement = data.exercises[exerciseIndex];
+        setWeight(replacement.defaultWeight);
+        setReps(replacement.plannedReps);
+        setRpe(defaultEffortValue(replacement));
+        setTechniqueQuality("");
+        setExerciseHistory(null);
+        setHistoryOpen(false);
+        setHistoryLoading(replacement.tracking !== "distance");
+        setRestSecondsRemaining(replacement.restSeconds ?? 90);
+      }
+      setExerciseChangeMode(null);
+      setSessionExerciseSearch("");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Træningen kunne ikke tilpasses.");
+    } finally {
+      setCustomizingSession(false);
     }
   };
 
@@ -1050,6 +1096,36 @@ export default function Home() {
           <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
+          <div className="session-exercise-actions">
+            <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={currentExerciseHasLogs || customizingSession}>Skift øvelse</button>
+            <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "add" ? null : "add")} disabled={sessionPlan.length >= 12 || customizingSession}>+ Tilføj ekstra øvelse</button>
+          </div>
+          {currentExerciseHasLogs && <p className="session-customize-note">Øvelsen kan ikke skiftes, efter et sæt er gemt. Dine registreringer bevares.</p>}
+          {exerciseChangeMode === "replace" && (
+            <article className="session-exercise-picker">
+              <div><span>5 ALTERNATIVER</span><strong>Samme muskelgruppe</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
+              <div className="session-alternative-list">
+                {exerciseAlternatives.map((exercise) => (
+                  <button key={exercise.name} onClick={() => customizeTodaySession(sessionPlan.map((item, index) => index === exerciseIndex ? definitionToSessionExercise(exercise) : item), exerciseIndex)} disabled={customizingSession}>
+                    <strong>{exercise.name}</strong><small>{exercise.target}</small><span>Vælg →</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          )}
+          {exerciseChangeMode === "add" && (
+            <article className="session-exercise-picker add">
+              <div><span>EKSTRA ØVELSE</span><strong>Føj til dagens træning</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
+              <input value={sessionExerciseSearch} onChange={(event) => setSessionExerciseSearch(event.target.value)} placeholder="Søg efter øvelse eller muskelgruppe" />
+              <div className="session-alternative-list">
+                {addableSessionExercises.map((exercise) => (
+                  <button key={exercise.name} onClick={() => customizeTodaySession([...sessionPlan, definitionToSessionExercise(exercise)])} disabled={customizingSession}>
+                    <strong>{exercise.name}</strong><small>{exercise.target}</small><span>Tilføj +</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          )}
           {currentExercise.tracking !== "distance" && (
             <article className={`exercise-history-summary ${exerciseHistory?.recommendation?.decision ?? "planned"}`}>
               <div>
