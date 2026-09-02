@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback entry points", async () => {
-  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData, exerciseUnits, sportCatalog, programCatalog] = await Promise.all([
+  const [page, programData, swimProgramData, strengthProgramData, feedbackForm, exerciseData, exerciseVideoData, exerciseUnits, sportCatalog, programCatalog, exerciseAlternatives] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/program-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/swim-program-data.ts", import.meta.url), "utf8"),
@@ -14,6 +14,7 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
     readFile(new URL("../app/exercise-units.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sport-catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/program-catalog.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/exercise-alternatives.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /God træning\./);
@@ -61,6 +62,11 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /Tilføj øvelse til dagen/);
   assert.match(page, /addExerciseToPlannedDay/);
   assert.match(page, /dayExerciseProgramId/);
+  assert.match(page, /matcher automatisk dagens sæt, pause, intensitet og relative belastning/);
+  assert.match(exerciseAlternatives, /definitionToContextualSessionExercise/);
+  assert.match(exerciseAlternatives, /intensityFactor/);
+  assert.match(exerciseAlternatives, /mostCommon/);
+  assert.match(exerciseAlternatives, /roundedSessionWeight/);
 
   assert.equal((programData.match(/programId: "/g) ?? []).length, 11);
   assert.equal((programData.match(/week: 1, day/g) ?? []).length, 7);

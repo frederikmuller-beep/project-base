@@ -5,7 +5,7 @@ import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../li
 import type { AthleteDashboardData, ExerciseHistorySession, HistoricalLoadRecommendation, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
 import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "./exercise-data";
-import { availableSessionExercises, definitionToSessionExercise, fiveExerciseAlternatives } from "./exercise-alternatives";
+import { availableSessionExercises, definitionToContextualSessionExercise, fiveExerciseAlternatives } from "./exercise-alternatives";
 import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, getWeekProgression, type ProgramDay, type SessionExercise } from "./program-data";
@@ -557,7 +557,7 @@ export default function Home() {
     if (!day.programId || customizingSession) return;
     const currentExercises = progress[day.programId]?.exercises ?? day.exercises;
     if (currentExercises.length >= 12 || currentExercises.some((item) => item.name === exercise.name)) return;
-    const nextPlan = [...currentExercises, definitionToSessionExercise(exercise)];
+    const nextPlan = [...currentExercises, definitionToContextualSessionExercise(exercise, currentExercises)];
     setCustomizingSession(true);
     setIdentityError("");
     try {
@@ -914,6 +914,7 @@ export default function Home() {
                 {day.programId === dayExerciseProgramId && (
                   <div className="day-exercise-picker">
                     <input value={dayExerciseSearch} onChange={(event) => setDayExerciseSearch(event.target.value)} placeholder="Søg efter øvelse eller muskelgruppe" />
+                    <small className="contextual-dose-note">Standarddoseringen tilpasses denne dags sæt, pauser og intensitet.</small>
                     <div>{dayExerciseOptions.map((exercise) => <button key={exercise.name} onClick={() => addExerciseToPlannedDay(effectiveDay, exercise)} disabled={customizingSession}><span><strong>{exercise.name}</strong><small>{exercise.target}</small></span><b>Tilføj +</b></button>)}</div>
                   </div>
                 )}
@@ -1166,7 +1167,7 @@ export default function Home() {
               <div><span>5 ALTERNATIVER</span><strong>Samme muskelgruppe</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
               <div className="session-alternative-list">
                 {exerciseAlternatives.map((exercise) => (
-                  <button key={exercise.name} onClick={() => customizeTodaySession(sessionPlan.map((item, index) => index === exerciseIndex ? definitionToSessionExercise(exercise) : item), exerciseIndex)} disabled={customizingSession}>
+                  <button key={exercise.name} onClick={() => customizeTodaySession(sessionPlan.map((item, index) => index === exerciseIndex ? definitionToContextualSessionExercise(exercise, sessionPlan, item) : item), exerciseIndex)} disabled={customizingSession}>
                     <strong>{exercise.name}</strong><small>{exercise.target}</small><span>Vælg →</span>
                   </button>
                 ))}
@@ -1177,9 +1178,10 @@ export default function Home() {
             <article className="session-exercise-picker add">
               <div><span>EKSTRA ØVELSE</span><strong>Føj til dagens træning</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
               <input value={sessionExerciseSearch} onChange={(event) => setSessionExerciseSearch(event.target.value)} placeholder="Søg efter øvelse eller muskelgruppe" />
+              <small className="contextual-dose-note">BASE matcher automatisk dagens sæt, pause, intensitet og relative belastning.</small>
               <div className="session-alternative-list">
                 {addableSessionExercises.map((exercise) => (
-                  <button key={exercise.name} onClick={() => customizeTodaySession([...sessionPlan, definitionToSessionExercise(exercise)])} disabled={customizingSession}>
+                  <button key={exercise.name} onClick={() => customizeTodaySession([...sessionPlan, definitionToContextualSessionExercise(exercise, sessionPlan)])} disabled={customizingSession}>
                     <strong>{exercise.name}</strong><small>{exercise.target}</small><span>Tilføj +</span>
                   </button>
                 ))}

@@ -8,7 +8,7 @@ import { getTesterId } from "../../../lib/tester-session";
 import { buildLoadSuggestion, type TechniqueQuality } from "../../../lib/training-analytics";
 import { parseSessionExercises } from "../../../lib/session-exercises";
 import { exerciseLibrary } from "../../exercise-data";
-import { definitionToSessionExercise } from "../../exercise-alternatives";
+import { definitionToContextualSessionExercise } from "../../exercise-alternatives";
 
 type TrainingPayload = {
   action?: "start" | "log_set" | "customize";
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
         const existing = sessionExercises[index];
         if (existing?.name === name) return { ...existing, sets: requestedSets[index], detail: existing.detail.replace(/^\d+\s*×/, `${requestedSets[index]} ×`) };
         const definition = definitions.get(name);
-        return definition ? { ...definitionToSessionExercise(definition), sets: requestedSets[index] } : null;
+        return definition ? { ...definitionToContextualSessionExercise(definition, sessionExercises, existing), sets: requestedSets[index] } : null;
       });
       if (customized.some((exercise) => !exercise)) {
         return Response.json({ error: "En af øvelserne findes ikke i biblioteket." }, { status: 400 });
