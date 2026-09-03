@@ -1,0 +1,1 @@
+ALTER TABLE `training_set_logs` ADD `effort_metric` text DEFAULT 'rpe' NOT NULL;

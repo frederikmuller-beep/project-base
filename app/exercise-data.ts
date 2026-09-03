@@ -1,14 +1,26 @@
+import { clarifyUnilateralReps } from "./exercise-units";
+import { type ContentVisibility, type Difficulty, type TrainingProfile } from "./sport-catalog";
+
+export const exerciseFocusTags = ["Eksplosivitet", "Elastik", "Unilateral", "Koordination", "Core"] as const;
+export type ExerciseFocusTag = typeof exerciseFocusTags[number];
+
 export type ExerciseDefinition = {
   name: string;
-  category: "Konkurrenceløft" | "Snatch" | "Clean" | "Jerk" | "Squat" | "Træk" | "Assistance";
+  category: string;
   target: string;
   cue: string;
   sets: string;
   reps: string;
   weight: string;
+  format?: "load" | "distance";
+  sports?: TrainingProfile[];
+  difficulty?: Difficulty;
+  visibility?: ContentVisibility;
+  focus?: string;
+  tags?: ExerciseFocusTag[];
 };
 
-export const exerciseLibrary: ExerciseDefinition[] = [
+const exerciseLibrarySource: ExerciseDefinition[] = [
   { name: "Snatch", category: "Konkurrenceløft", target: "Helkrop · teknik", cue: "Tæt stang og aktiv modtagelse", sets: "5", reps: "2", weight: "60" },
   { name: "Hang snatch", category: "Snatch", target: "Timing · eksplosivitet", cue: "Hold spændingen over knæet", sets: "4", reps: "3", weight: "50" },
   { name: "Power snatch", category: "Snatch", target: "Hastighed · træk", cue: "Modtag stangen højt og stabilt", sets: "5", reps: "2", weight: "55" },
@@ -85,7 +97,7 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Box squat", category: "Squat", target: "Bagkæde · kontrol", cue: "Sæt dig kontrolleret og behold spændingen", sets: "4", reps: "5", weight: "100" },
   { name: "Anderson squat", category: "Squat", target: "Startstyrke · ben", cue: "Byg spænding før stangen forlader pins", sets: "5", reps: "3", weight: "90" },
   { name: "Split squat", category: "Squat", target: "Ensidig benstyrke · balance", cue: "Hold forreste fod stabil og torso høj", sets: "4", reps: "6", weight: "40" },
-  { name: "Bulgarian split squat", category: "Squat", target: "Ensidig styrke · stabilitet", cue: "Sænk bageste knæ kontrolleret", sets: "4", reps: "8", weight: "35" },
+  { name: "Bulgarian split squat", category: "Squat", target: "Ensidig styrke · stabilitet", cue: "Sænk bageste knæ kontrolleret", sets: "4", reps: "8 pr. ben", weight: "35" },
   { name: "Snatch high pull", category: "Træk", target: "Kraft · albueføring", cue: "Afslut benene før albuerne går op", sets: "4", reps: "4", weight: "75" },
   { name: "Clean high pull", category: "Træk", target: "Kraft · afslutning", cue: "Hold stangen tæt og afslut lodret", sets: "4", reps: "4", weight: "100" },
   { name: "Snatch pull from blocks", category: "Træk", target: "Andet træk · belastning", cue: "Start balanceret og accelerér gennem kontakten", sets: "4", reps: "3", weight: "85" },
@@ -94,9 +106,205 @@ export const exerciseLibrary: ExerciseDefinition[] = [
   { name: "Clean pull with pause", category: "Træk", target: "Position · benstyrke", cue: "Hold hele foden i gulvet under pausen", sets: "4", reps: "3", weight: "110" },
   { name: "Snatch deficit pull", category: "Træk", target: "Startstyrke · position", cue: "Pres jævnt uden at ændre rygvinklen", sets: "4", reps: "3", weight: "75" },
   { name: "Clean deficit pull", category: "Træk", target: "Startstyrke · ben", cue: "Hold brystet over stangen fra gulvet", sets: "4", reps: "3", weight: "105" },
-  { name: "Bench press", category: "Assistance", target: "Bryst · triceps", cue: "Hold skulderbladene stabile mod bænken", sets: "4", reps: "6", weight: "70" },
+  { name: "Bænkpres", category: "Assistance", target: "Bryst · triceps", cue: "Hold skulderbladene stabile mod bænken", sets: "4", reps: "6", weight: "70" },
   { name: "Pendlay row", category: "Assistance", target: "Øvre ryg · trækstyrke", cue: "Hold ryggen fast og træk mod nederste ribben", sets: "4", reps: "6", weight: "70" },
   { name: "Pull-up", category: "Assistance", target: "Ryg · greb", cue: "Start med aktive skuldre og undgå kip", sets: "4", reps: "6", weight: "0" },
   { name: "Romanian deadlift", category: "Assistance", target: "Baglår · bagkæde", cue: "Skub hoften tilbage med neutral ryg", sets: "4", reps: "8", weight: "90" },
   { name: "Plank", category: "Assistance", target: "Core · stabilitet", cue: "Spænd balder og hold ribben nede", sets: "4", reps: "30", weight: "0" },
+  { name: "Lat pulldown", category: "Assistance", target: "Ryg · trækstyrke", cue: "Hold ribben nede og før albuerne mod siden", sets: "4", reps: "8", weight: "45" },
+  { name: "Seated cable row", category: "Assistance", target: "Øvre ryg · holdning", cue: "Saml skulderbladene uden at læne dig tilbage", sets: "4", reps: "10", weight: "40" },
+  { name: "Push-up", category: "Assistance", target: "Bryst · skulderkontrol", cue: "Bevar en lang kropslinje og lad skulderbladene bevæge sig", sets: "4", reps: "10", weight: "0" },
+  { name: "Half-kneeling landmine press", category: "Assistance", target: "Skulder · core", cue: "Hold ribben nede og pres skråt frem", sets: "3", reps: "8", weight: "25" },
+  { name: "Pallof press", category: "Assistance", target: "Core · antirotation", cue: "Hold bryst og hofter lige frem", sets: "3", reps: "10", weight: "12" },
+  { name: "Dead bug", category: "Assistance", target: "Core · kontrol", cue: "Hold lænden roligt mod gulvet", sets: "3", reps: "10", weight: "0" },
+  { name: "Side plank", category: "Assistance", target: "Core · sidestabilitet", cue: "Hold kroppen lang fra hoved til fod", sets: "3", reps: "30 sek", weight: "0" },
+  { name: "Copenhagen plank", category: "Assistance", target: "Hofte · core", cue: "Hold bækkenet højt og stabilt", sets: "3", reps: "20 sek", weight: "0" },
+  { name: "Bird dog", category: "Assistance", target: "Core · krydsstabilitet", cue: "Undgå rotation mens arm og ben strækkes", sets: "3", reps: "10", weight: "0" },
+  { name: "Box jump", category: "Assistance", target: "Ben · eksplosivitet", cue: "Land blødt og stop før springhøjden falder", sets: "5", reps: "3", weight: "0" },
+  { name: "Medicine ball slam", category: "Assistance", target: "Helkrop · power", cue: "Skab kraft fra hele kroppen og kast hurtigt", sets: "5", reps: "5", weight: "6" },
+  { name: "Band external rotation", category: "Assistance", target: "Rotatorcuff · skulderkontrol", cue: "Hold albuen tæt og brug let modstand", sets: "3", reps: "12", weight: "5" },
+  { name: "Calf raise", category: "Assistance", target: "Læg · ankelstyrke", cue: "Arbejd gennem fuldt bevægeudslag", sets: "3", reps: "12", weight: "30" },
+  { name: "Single-leg Romanian deadlift", category: "Assistance", target: "Bagkæde · hoftestabilitet", cue: "Hold bækkenet lige og bevæg dig fra hoften", sets: "3", reps: "8", weight: "20" },
+  { name: "Dødløft", category: "Assistance", target: "Bagkæde · maksimal styrke", cue: "Spænd op før stangen forlader gulvet, og hold den tæt", sets: "4", reps: "5", weight: "100" },
+  { name: "Dips", category: "Assistance", target: "Bryst · triceps · skulderstabilitet", cue: "Hold skuldrene nede og arbejd i et kontrolleret bevægeudslag", sets: "4", reps: "8", weight: "0" },
+  { name: "Hip thrust", category: "Assistance", target: "Balder · hofteekstension", cue: "Hold ribbenene nede og afslut med fuld hoftestræk", sets: "4", reps: "8", weight: "80" },
+  { name: "Dumbbell shoulder press", category: "Assistance", target: "Skuldre · triceps", cue: "Pres håndvægtene op uden at overstrække lænden", sets: "3", reps: "8", weight: "20" },
+  { name: "Farmer's walk", category: "Assistance", target: "Greb · core · holdning", cue: "Gå roligt med høj kropsholdning og stabile skuldre", sets: "4", reps: "30 m", weight: "30" },
+  { name: "Face pull", category: "Assistance", target: "Øvre ryg · bagskulder", cue: "Træk mod ansigtet og afslut med skulderbladene samlet", sets: "3", reps: "12", weight: "15" },
+  { name: "Straight-arm pulldown", category: "Svømmestyrke", target: "Lats · trækkets afslutning", cue: "Hold armene lange og før hænderne mod lårene", sets: "3", reps: "10", weight: "25" },
+  { name: "Single-arm cable pulldown", category: "Svømmestyrke", target: "Lats · ensidig trækkraft", cue: "Træk albuen ned uden at rotere overkroppen", sets: "3", reps: "10", weight: "20" },
+  { name: "Swim bench freestyle pull", category: "Svømmestyrke", target: "Crawl · trækkraft på land", cue: "Efterlign et højt albuegreb med rolig kontrol", sets: "4", reps: "8", weight: "10" },
+  { name: "Swim bench butterfly pull", category: "Svømmestyrke", target: "Butterfly · symmetrisk trækkraft", cue: "Før begge arme gennem samme bane uden at løfte skuldrene", sets: "4", reps: "8", weight: "10" },
+  { name: "Band freestyle stroke", category: "Svømmestyrke", target: "Crawl · rytme · skulderudholdenhed", cue: "Hold kroppen stabil og før én arm ad gangen", sets: "3", reps: "12", weight: "5" },
+  { name: "Band butterfly stroke", category: "Svømmestyrke", target: "Butterfly · rytme · lats", cue: "Træk begge arme samtidigt med bløde albuer", sets: "3", reps: "12", weight: "5" },
+  { name: "Band breaststroke pull", category: "Svømmestyrke", target: "Brystsvømning · indadføring", cue: "Hold albuerne høje og saml hænderne kontrolleret", sets: "3", reps: "12", weight: "5" },
+  { name: "Band backstroke pull", category: "Svømmestyrke", target: "Rygcrawl · bagskulder · lats", cue: "Før armen gennem trækket uden at dreje brystet", sets: "3", reps: "12", weight: "5" },
+  { name: "Streamline lat pulldown", category: "Svømmestyrke", target: "Streamline · lats · core", cue: "Start med armene samlet over hovedet og hold ribbenene nede", sets: "3", reps: "10", weight: "25" },
+  { name: "Streamline overhead hold", category: "Svømmestyrke", target: "Streamline · skulderstabilitet", cue: "Pres armene sammen og hold en lang kropslinje", sets: "3", reps: "30 sek", weight: "5" },
+  { name: "Prone swimmer", category: "Svømmestyrke", target: "Skuldre · øvre ryg · bevægelighed", cue: "Før armene roligt fra streamline til hofterne", sets: "3", reps: "8", weight: "0" },
+  { name: "Prone Y-T-W", category: "Svømmestyrke", target: "Skulderblade · rotatorcuff", cue: "Løft armene let uden at spænde i nakken", sets: "3", reps: "6+6+6", weight: "2" },
+  { name: "Serratus wall slide", category: "Svømmestyrke", target: "Serratus · skulderkontrol", cue: "Pres underarmene mod væggen og glid kontrolleret op", sets: "3", reps: "10", weight: "0" },
+  { name: "Scapular pull-up", category: "Svømmestyrke", target: "Skulderblade · aktivt hæng", cue: "Hold armene lange og sænk skuldrene væk fra ørerne", sets: "3", reps: "8", weight: "0" },
+  { name: "Scapular push-up", category: "Svømmestyrke", target: "Serratus · skulderblade", cue: "Hold albuerne strakte og bevæg kun skulderbladene", sets: "3", reps: "12", weight: "0" },
+  { name: "Cable internal rotation", category: "Svømmestyrke", target: "Rotatorcuff · indadrotation", cue: "Hold albuen tæt ind til siden og brug let belastning", sets: "3", reps: "12", weight: "5" },
+  { name: "Cable external rotation", category: "Svømmestyrke", target: "Rotatorcuff · udadrotation", cue: "Bevar albuen i samme position gennem hele bevægelsen", sets: "3", reps: "12", weight: "5" },
+  { name: "Wall angel", category: "Svømmestyrke", target: "Brystryg · skulderbevægelighed", cue: "Hold ribbenene nede og armene tæt på væggen", sets: "3", reps: "10", weight: "0" },
+  { name: "Overhead medicine ball throw", category: "Svømmestyrke", target: "Start · vending · eksplosivitet", cue: "Skab kraft fra ben og core før armene afslutter", sets: "5", reps: "4", weight: "4" },
+  { name: "Rotational medicine ball throw", category: "Svømmestyrke", target: "Rotation · core · kraftoverførsel", cue: "Drej fra hofterne og hold knæene stabile", sets: "4", reps: "5", weight: "4" },
+  { name: "Tall-kneeling cable chop", category: "Svømmestyrke", target: "Core · diagonal kraft", cue: "Hold hofterne stabile mens hænderne føres ned over kroppen", sets: "3", reps: "10", weight: "15" },
+  { name: "Tall-kneeling cable lift", category: "Svømmestyrke", target: "Core · skulderkontrol", cue: "Før hænderne diagonalt op uden at svaje i lænden", sets: "3", reps: "10", weight: "12" },
+  { name: "Single-arm row with rotation", category: "Svømmestyrke", target: "Træk · kropsrotation", cue: "Træk albuen tilbage og rotér kontrolleret gennem brystryggen", sets: "3", reps: "8", weight: "20" },
+  { name: "Isometric catch hold", category: "Svømmestyrke", target: "Greb i vandet · skulderudholdenhed", cue: "Hold høj albue mod elastikkens træk uden at løfte skulderen", sets: "4", reps: "20 sek", weight: "5" },
+  { name: "Goblet squat", category: "Assistance", target: "Ben · core · teknik", cue: "Hold vægten tæt ved brystet og knæene stabile", sets: "4", reps: "8", weight: "24" },
+  { name: "Trap bar deadlift", category: "Assistance", target: "Ben · bagkæde · greb", cue: "Pres gulvet væk og afslut med hofterne", sets: "4", reps: "5", weight: "100" },
+  { name: "Step-up", category: "Assistance", target: "Ensidig benstyrke · stabilitet", cue: "Pres gennem hele foden og undgå afsæt fra bagbenet", sets: "3", reps: "8", weight: "20" },
+  { name: "Reverse lunge", category: "Assistance", target: "Ben · balance · hoftekontrol", cue: "Træd roligt tilbage og hold forreste knæ stabilt", sets: "3", reps: "8", weight: "20" },
+  { name: "Lateral lunge", category: "Assistance", target: "Hofte · inderlår · sidekraft", cue: "Sæt hoften tilbage over det bøjede ben", sets: "3", reps: "8", weight: "16" },
+  { name: "Glute bridge", category: "Assistance", target: "Balder · hofteekstension", cue: "Pres gennem hælene og hold ribbenene nede", sets: "3", reps: "12", weight: "20" },
+  { name: "Nordic hamstring curl", category: "Assistance", target: "Baglår · excentrisk styrke", cue: "Sænk kroppen langsomt med hoften strakt", sets: "3", reps: "5", weight: "0" },
+  { name: "Lying leg curl", category: "Assistance", target: "Baglår · knækontrol", cue: "Hold hoften i bænken og sænk vægten kontrolleret", sets: "3", reps: "10", weight: "30" },
+  { name: "Leg press", category: "Assistance", target: "Ben · generel styrke", cue: "Hold ryggen stabil og arbejd gennem et smertefrit bevægeudslag", sets: "4", reps: "8", weight: "120" },
+  { name: "Chest-supported dumbbell row", category: "Assistance", target: "Øvre ryg · lats", cue: "Hold brystet mod bænken og træk albuerne tilbage", sets: "4", reps: "8", weight: "20" },
+  { name: "Incline dumbbell bench press", category: "Assistance", target: "Bryst · skuldre · triceps", cue: "Hold skulderbladene stabile og sænk håndvægtene roligt", sets: "4", reps: "8", weight: "20" },
+  { name: "Cable chest press", category: "Assistance", target: "Bryst · serratus · core", cue: "Pres frem uden at rotere kroppen", sets: "3", reps: "10", weight: "20" },
+  { name: "Landmine row", category: "Assistance", target: "Ryg · greb · bagkæde", cue: "Hold ryggen stabil og træk vægten mod brystet", sets: "4", reps: "8", weight: "40" },
+  { name: "Suitcase carry", category: "Assistance", target: "Core · greb · sidestabilitet", cue: "Gå højt uden at læne dig mod vægten", sets: "4", reps: "30 m", weight: "24" },
+  { name: "Hollow body hold", category: "Assistance", target: "Core · kropslinje", cue: "Hold lænden mod gulvet og kroppen lang", sets: "3", reps: "30 sek", weight: "0" },
+  { name: "Ab wheel rollout", category: "Assistance", target: "Core · anti-ekstension", cue: "Hold bækkenet stabilt og rul kun så langt du kan kontrollere", sets: "3", reps: "8", weight: "0" },
+  { name: "Crawl catch-up", category: "Svømning", target: "Crawl · timing", cue: "Lad hænderne mødes foran kroppen før næste armtag", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl med knyttede næver", category: "Svømning", target: "Crawl · vandføling", cue: "Hold høj albue og mærk trykket på underarmen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl fingertip drag", category: "Svømning", target: "Crawl · afslappet fremføring", cue: "Lad fingerspidserne strejfe vandet med høj albue", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmscrawl", category: "Svømning", target: "Crawl · rotation", cue: "Hold den passive arm fremme og roter fra hoften", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "6-1-6 sideskift", category: "Svømning", target: "Crawl · balance", cue: "Seks benspark på siden, ét armtag og roligt sideskift", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sculling foran", category: "Svømning", target: "Vandføling · indgreb", cue: "Små bevægelser med albuerne højt og tryk på håndfladen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sculling midt", category: "Svømning", target: "Vandføling · trækfase", cue: "Hold overarmene stabile og arbejd med underarmene", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Benspark med plade", category: "Svømning", target: "Ben · udholdenhed", cue: "Små spark fra hoften og afslappede ankler", sets: "6", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Sidekick", category: "Svømning", target: "Kropslinje · balance", cue: "Hold kroppen lang og det nederste øre tæt ved armen", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Streamline-benspark på ryggen", category: "Svømning", target: "Streamline · ben", cue: "Klem armene om ørerne og hold hoften højt", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Delfinbenspark på ryggen", category: "Svømning", target: "Undervandsfase · core", cue: "Skab bølgen fra brystkassen og hold knæene samlet", sets: "6", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Brystsvømning med glidepause", category: "Svømning", target: "Bryst · timing", cue: "Afslut hvert spark i en lang, rolig streamline", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Brystbenspark med plade", category: "Svømning", target: "Bryst · benspark", cue: "Før hælene roligt op og accelerér fødderne bagud", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Brystarme med pull buoy", category: "Svømning", target: "Bryst · armtag", cue: "Hold trækket kompakt og før hænderne hurtigt frem", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmsrygcrawl", category: "Svømning", target: "Rygcrawl · rotation", cue: "Roter kroppen samlet og hold hovedet roligt", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Rygcrawl 6-kick switch", category: "Svømning", target: "Rygcrawl · balance", cue: "Seks benspark på siden og et kontrolleret armtag", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Butterfly 3-3-3", category: "Svømning", target: "Butterfly · rytme", cue: "Tre tag med hver arm og tre hele tag med samme rytme", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Enarmsbutterfly", category: "Svømning", target: "Butterfly · timing", cue: "Bevar to benspark pr. cyklus og en lav fremføring", sets: "4", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Crawl med pull buoy", category: "Svømning", target: "Crawl · armtag", cue: "Hold benene rolige og fasthold et tidligt indgreb", sets: "6", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Teknikcrawl med paddles", category: "Svømning", target: "Crawl · greb", cue: "Svøm kontrolleret og stop hvis grebet eller skulderen svigter", sets: "4", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Indsvømning", category: "Svømning", target: "Opvarmning · rytme", cue: "Start roligt og øg bevægeudslaget gradvist", sets: "4", reps: "100 m", weight: "0", format: "distance" },
+  { name: "Aerob crawl", category: "Svømning", target: "Udholdenhed · pacing", cue: "Hold et tempo du kan gentage med samme teknik", sets: "6", reps: "200 m", weight: "0", format: "distance" },
+  { name: "Tærskel crawl", category: "Svømning", target: "Tærskel · fartkontrol", cue: "Svøm kontrolleret hårdt med ensartede splittider", sets: "8", reps: "100 m", weight: "0", format: "distance" },
+  { name: "Race pace", category: "Svømning", target: "Konkurrencefart · rytme", cue: "Prioritér præcis fart og teknik frem for ekstra gentagelser", sets: "8", reps: "50 m", weight: "0", format: "distance" },
+  { name: "Sprint fra afsæt", category: "Svømning", target: "Acceleration · topfart", cue: "Eksplodér fra væggen og stop før teknikken falder", sets: "8", reps: "25 m", weight: "0", format: "distance" },
+  { name: "Startspring og undervand", category: "Svømning", target: "Start · breakout", cue: "Gentag samme opsætning og hold en stram streamline", sets: "8", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Vendingstræning", category: "Svømning", target: "Vending · acceleration", cue: "Gå hurtigt ind, roter kompakt og skub i en fast linje", sets: "8", reps: "15 m", weight: "0", format: "distance" },
+  { name: "Udsvømning", category: "Svømning", target: "Restitution · bevægelse", cue: "Sænk tempoet og find en rolig vejrtrækning", sets: "4", reps: "100 m", weight: "0", format: "distance" },
 ];
+
+const catalogHighlights: ExerciseDefinition[] = [
+  { name: "2500 m temposvømning", category: "Svømning", target: "Tempo · udholdenhed", cue: "Hold jævne splittider og stabil teknik", sets: "1", reps: "2500 m", weight: "0", format: "distance", sports: ["long_distance", "middle_distance"], difficulty: "Øvet", visibility: "coach_only", focus: "Tempo" },
+  { name: "3000 m intervalløb", category: "Løb", target: "10 km-fart · intervaller", cue: "Hold den aftalte fart med kontrollerede pauser", sets: "6", reps: "500 m", weight: "0", format: "distance", sports: ["running"], difficulty: "Øvet", visibility: "coach_only", focus: "10 km-fart" },
+  { name: "Suicide runs", category: "Fodbold", target: "Kampkondition · retningsskift", cue: "Brems kontrolleret og accelerér med god position", sets: "6", reps: "120 m", weight: "0", format: "distance", sports: ["football", "american_football", "handball"], difficulty: "Avanceret", visibility: "coach_only", focus: "Gentagen sprint" },
+  { name: "Brick-interval", category: "Triathlon", target: "Skift · udholdenhed", cue: "Bevar teknik gennem skiftet mellem discipliner", sets: "4", reps: "1000 m", weight: "0", format: "distance", sports: ["triathlon", "ironman"], difficulty: "Øvet", visibility: "coach_only", focus: "Skift" },
+  { name: "Cykelinterval", category: "Cykling", target: "Tærskel · kadence", cue: "Hold stabil kadence og den aftalte pulszone", sets: "5", reps: "2000 m", weight: "0", format: "distance", sports: ["cycling"], difficulty: "Øvet", visibility: "coach_only", focus: "Tærskel" },
+  { name: "10-yard sprint", category: "Amerikansk fodbold", target: "Acceleration · første skridt", cue: "Start stabilt og accelerér gennem hele distancen", sets: "8", reps: "10 m", weight: "0", format: "distance", sports: ["american_football", "athletics"], difficulty: "Øvet", visibility: "coach_only", focus: "Acceleration" },
+];
+
+const curatedSportExercises: ExerciseDefinition[] = [
+  { name: "Roligt kontinuerligt løb", category: "Løb", target: "Aerob base · løbeøkonomi", cue: "Hold et roligt tempo, hvor vejrtrækningen er kontrolleret", sets: "1", reps: "5000 m", weight: "0", format: "distance", sports: ["running", "triathlon", "ironman", "athletics", "football", "handball", "american_football", "hyrox"], difficulty: "Begynder", visibility: "coach_only", focus: "Aerob base" },
+  { name: "Progressivt 5 km-løb", category: "Løb", target: "Pacing · 10 km-form", cue: "Start roligt og øg farten gradvist uden at sprinte til sidst", sets: "1", reps: "5000 m", weight: "0", format: "distance", sports: ["running", "triathlon", "ironman", "athletics"], difficulty: "Øvet", visibility: "coach_only", focus: "Pacing" },
+  { name: "Tærskelintervaller 4 × 1000 m", category: "Løb", target: "Tærskel · fartudholdenhed", cue: "Løb ensartede intervaller med kontrolleret hård indsats", sets: "4", reps: "1000 m", weight: "0", format: "distance", sports: ["running", "triathlon", "ironman", "athletics", "hyrox"], difficulty: "Øvet", visibility: "coach_only", focus: "Tærskel" },
+  { name: "10 km-tempo 6 × 800 m", category: "Løb", target: "10 km-fart · rytme", cue: "Hold målfarten og afslut hvert interval med samme teknik", sets: "6", reps: "800 m", weight: "0", format: "distance", sports: ["running", "triathlon", "athletics"], difficulty: "Avanceret", visibility: "coach_only", focus: "10 km-fart" },
+  { name: "Bakkeintervaller 8 × 200 m", category: "Løb", target: "Løbestyrke · acceleration", cue: "Løb med korte skridt, høj hofte og kontrolleret returpause", sets: "8", reps: "200 m", weight: "0", format: "distance", sports: ["running", "triathlon", "athletics", "football", "handball", "american_football", "hyrox"], difficulty: "Øvet", visibility: "coach_only", focus: "Løbestyrke" },
+  { name: "Restitutionsløb 3 km", category: "Løb", target: "Restitution · bevægelse", cue: "Hold pulsen lav og stop, hvis benene føles dårligere undervejs", sets: "1", reps: "3000 m", weight: "0", format: "distance", sports: ["running", "triathlon", "ironman", "football", "handball", "american_football", "hyrox"], difficulty: "Begynder", visibility: "coach_only", focus: "Restitution" },
+  { name: "Repeated sprint 6 × 30 m", category: "Holdsport", target: "Gentagen acceleration · kampfart", cue: "Accelerér skarpt og bevar samme kvalitet på alle gentagelser", sets: "6", reps: "30 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football"], difficulty: "Øvet", visibility: "coach_only", focus: "Gentagen sprint" },
+  { name: "5-10-5 shuttle run", category: "Holdsport", target: "Retningsskift · acceleration", cue: "Sænk tyngdepunktet før vendingen og accelerér ud af første skridt", sets: "6", reps: "20 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football", "athletics"], difficulty: "Øvet", visibility: "coach_only", focus: "Retningsskift" },
+  { name: "Kampintervaller 12 × 100 m", category: "Holdsport", target: "Kampkondition · gentagen fart", cue: "Hold en fart, der kan gentages uden markant fald i løbeteknik", sets: "12", reps: "100 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football"], difficulty: "Avanceret", visibility: "coach_only", focus: "Kampkondition" },
+  { name: "Sprintacceleration 8 × 20 m", category: "Holdsport", target: "Første skridt · topfart", cue: "Brug fuld pause og stop, når accelerationen bliver langsommere", sets: "8", reps: "20 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football", "athletics"], difficulty: "Øvet", visibility: "coach_only", focus: "Acceleration" },
+  { name: "Retningsskift 6 × 40 m", category: "Holdsport", target: "Bremsning · re-acceleration", cue: "Brems over flere skridt og hold knæet stabilt gennem vendingen", sets: "6", reps: "40 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football"], difficulty: "Øvet", visibility: "coach_only", focus: "Retningsskift" },
+  { name: "Tempo shuttle 10 × 60 m", category: "Holdsport", target: "Aerob kampkapacitet · pacing", cue: "Løb kontrolleret og ram samme tid på alle gentagelser", sets: "10", reps: "60 m", weight: "0", format: "distance", sports: ["football", "handball", "american_football"], difficulty: "Begynder", visibility: "coach_only", focus: "Kampkapacitet" },
+  { name: "Aerob cykling 20 km", category: "Cykling", target: "Aerob base · trådøkonomi", cue: "Hold stabil kadence og puls i den aftalte zone", sets: "1", reps: "20000 m", weight: "0", format: "distance", sports: ["cycling", "triathlon", "ironman"], difficulty: "Begynder", visibility: "coach_only", focus: "Aerob base" },
+  { name: "Tærskelblokke på cykel", category: "Cykling", target: "Tærskel · vedvarende effekt", cue: "Hold samme kadence og indsats gennem alle blokke", sets: "5", reps: "3000 m", weight: "0", format: "distance", sports: ["cycling", "triathlon", "ironman"], difficulty: "Øvet", visibility: "coach_only", focus: "Tærskel" },
+  { name: "Korte cykelsprinter", category: "Cykling", target: "Topkraft · acceleration", cue: "Brug fuld kontrol i opbygningen og stop før effekten falder", sets: "8", reps: "250 m", weight: "0", format: "distance", sports: ["cycling", "triathlon"], difficulty: "Avanceret", visibility: "coach_only", focus: "Sprintkraft" },
+  { name: "Bakkeintervaller på cykel", category: "Cykling", target: "Benstyrke · tærskel", cue: "Hold overkroppen rolig og træd jævnt gennem hele bakken", sets: "6", reps: "1500 m", weight: "0", format: "distance", sports: ["cycling", "triathlon", "ironman"], difficulty: "Øvet", visibility: "coach_only", focus: "Benudholdenhed" },
+  { name: "Kadenceintervaller", category: "Cykling", target: "Trådøkonomi · teknik", cue: "Øg kadencen uden at miste kontrol over hofter og overkrop", sets: "6", reps: "1000 m", weight: "0", format: "distance", sports: ["cycling", "triathlon", "ironman"], difficulty: "Begynder", visibility: "coach_only", focus: "Kadence" },
+  { name: "Restitutionscykling 10 km", category: "Cykling", target: "Restitution · cirkulation", cue: "Kør let med lav modstand og rolig vejrtrækning", sets: "1", reps: "10000 m", weight: "0", format: "distance", sports: ["cycling", "triathlon", "ironman"], difficulty: "Begynder", visibility: "coach_only", focus: "Restitution" },
+  { name: "Cykel-løb brick", category: "Triathlon", target: "Skifteevne · løberytme", cue: "Skift hurtigt og find en stabil løberytme uden at åbne for hårdt", sets: "3", reps: "2000 m", weight: "0", format: "distance", sports: ["triathlon", "ironman"], difficulty: "Øvet", visibility: "coach_only", focus: "Skift" },
+  { name: "Lang brick-session", category: "Triathlon", target: "Udholdenhed · raceforberedelse", cue: "Prioritér jævn energi og disciplineret intensitet gennem hele passet", sets: "2", reps: "10000 m", weight: "0", format: "distance", sports: ["triathlon", "ironman"], difficulty: "Avanceret", visibility: "coach_only", focus: "Raceforberedelse" },
+  { name: "SkiErg 6 × 500 m", category: "Skisport", target: "Stavkraft · kondition", cue: "Hold hoften aktiv og gentag samme træklængde", sets: "6", reps: "500 m", weight: "0", format: "distance", sports: ["skiing", "hyrox", "crossfit"], difficulty: "Øvet", visibility: "coach_only", focus: "Stavkraft" },
+  { name: "Dobbeltstav 5 × 1000 m", category: "Skisport", target: "Styrkeudholdenhed · rytme", cue: "Skab tryk fra core og hofte uden at forkorte stavtaget", sets: "5", reps: "1000 m", weight: "0", format: "distance", sports: ["skiing"], difficulty: "Avanceret", visibility: "coach_only", focus: "Styrkeudholdenhed" },
+  { name: "Romaskine 6 × 500 m", category: "Kondition", target: "Helkropskapacitet · pacing", cue: "Hold samme split og rytme gennem alle intervaller", sets: "6", reps: "500 m", weight: "0", format: "distance", sports: ["hyrox", "crossfit", "triathlon"], difficulty: "Øvet", visibility: "coach_only", focus: "Kapacitet" },
+  { name: "Hyrox løbeinterval 8 × 1000 m", category: "Hyrox", target: "Løbsøkonomi · konkurrencefart", cue: "Hold den planlagte Hyrox-fart og stabil teknik efter stationerne", sets: "8", reps: "1000 m", weight: "0", format: "distance", sports: ["hyrox"], difficulty: "Avanceret", visibility: "coach_only", focus: "Løbsøkonomi" },
+  { name: "Sled push", category: "Hyrox", target: "Ben · stationsstyrke", cue: "Hold korte skridt, spændt core og konstant tryk i slæden", sets: "4", reps: "20 m", weight: "100", sports: ["hyrox", "american_football"], difficulty: "Øvet", visibility: "athlete", focus: "Stationsstyrke" },
+  { name: "Sled pull", category: "Hyrox", target: "Ryg · greb · stationsstyrke", cue: "Hold rebbanen rolig og træk med stabile hofter", sets: "4", reps: "20 m", weight: "75", sports: ["hyrox", "american_football"], difficulty: "Øvet", visibility: "athlete", focus: "Stationsstyrke" },
+  { name: "Farmers carry", category: "Hyrox", target: "Greb · core · gangstyrke", cue: "Gå højt med korte kontrollerede skridt og stabile skuldre", sets: "4", reps: "50 m", weight: "48", sports: ["hyrox", "crossfit"], difficulty: "Øvet", visibility: "athlete", focus: "Carry" },
+  { name: "Sandbag walking lunges", category: "Hyrox", target: "Ben · ensidig styrkeudholdenhed", cue: "Hold knæet stabilt og gentag samme skridtlængde", sets: "4", reps: "20 skridt", weight: "20", sports: ["hyrox", "crossfit"], difficulty: "Øvet", visibility: "athlete", focus: "Styrkeudholdenhed" },
+  { name: "Wall balls", category: "Hyrox", target: "Ben · pres · arbejdskapacitet", cue: "Brug en ensartet squatdybde og kast til samme mål hver gang", sets: "4", reps: "20", weight: "6", sports: ["hyrox", "crossfit"], difficulty: "Øvet", visibility: "athlete", focus: "Arbejdskapacitet" },
+  { name: "Burpee broad jumps", category: "Hyrox", target: "Helkrop · fremdrift", cue: "Find en rytme, du kan gentage uden at miste landingskontrol", sets: "4", reps: "10", weight: "0", sports: ["hyrox", "crossfit"], difficulty: "Avanceret", visibility: "athlete", focus: "Arbejdskapacitet" },
+  { name: "Kettlebell swing", category: "CrossFit", target: "Hofteekstension · power", cue: "Skab kraft fra hoften og hold armene afslappede", sets: "4", reps: "12", weight: "24", sports: ["crossfit", "hyrox"], difficulty: "Øvet", visibility: "athlete", focus: "Power" },
+  { name: "Dumbbell thruster", category: "CrossFit", target: "Ben · pres · kapacitet", cue: "Brug benenes fremdrift og hold håndvægtene i en stabil bane", sets: "4", reps: "10", weight: "15", sports: ["crossfit", "hyrox"], difficulty: "Øvet", visibility: "athlete", focus: "Mixed modal" },
+  { name: "Toes-to-bar", category: "CrossFit", target: "Core · gymnastisk træk", cue: "Start med aktive skuldre og kontroller svinget", sets: "4", reps: "8", weight: "0", sports: ["crossfit"], difficulty: "Avanceret", visibility: "athlete", focus: "Gymnastik" },
+  { name: "Handstand push-up", category: "CrossFit", target: "Skuldre · gymnastisk pres", cue: "Hold en stabil kropslinje og arbejd i et kontrolleret bevægeudslag", sets: "4", reps: "6", weight: "0", sports: ["crossfit"], difficulty: "Avanceret", visibility: "athlete", focus: "Gymnastik" },
+  { name: "Jerk-fodarbejde uden vægt", category: "Vægtløftning", target: "Fodarbejde · timing", cue: "Flyt fødderne hurtigt til en stabil splitposition og nulstil roligt", sets: "5", reps: "3", weight: "0", sports: ["weightlifting"], difficulty: "Begynder", visibility: "athlete", focus: "Teknik" },
+  { name: "Lateral skater jump", category: "Skisport", target: "Sidekraft · enbensbalance", cue: "Land stabilt på ét ben før næste afsæt", sets: "4", reps: "6 pr. side", weight: "0", sports: ["skiing", "athletics", "football", "handball"], difficulty: "Øvet", visibility: "athlete", focus: "Sidekraft" },
+  { name: "Cable rotation", category: "Golf", target: "Rotation · core", cue: "Roter gennem brystryg og hofte uden at miste fodtrykket", sets: "3", reps: "8 pr. side", weight: "15", sports: ["golf"], difficulty: "Øvet", visibility: "athlete", focus: "Rotation" },
+  { name: "Hip airplane", category: "Golf", target: "Hoftekontrol · balance", cue: "Hold standbenet stabilt og roter bækkenet langsomt", sets: "3", reps: "6 pr. side", weight: "0", sports: ["golf", "running", "triathlon"], difficulty: "Øvet", visibility: "athlete", focus: "Hoftekontrol" },
+  { name: "Landmine rotation", category: "Golf", target: "Rotation · kraftoverførsel", cue: "Flyt kraften fra ben og hofte gennem en stabil core", sets: "4", reps: "6 pr. side", weight: "20", sports: ["golf", "athletics", "handball"], difficulty: "Øvet", visibility: "athlete", focus: "Rotation" },
+  { name: "Pogo jumps", category: "Atletik", target: "Ankelstivhed · reaktiv styrke", cue: "Hold kontakttiden kort og land på samme sted", sets: "4", reps: "12", weight: "0", sports: ["athletics", "running", "football", "handball"], difficulty: "Øvet", visibility: "athlete", focus: "Reaktiv styrke" },
+];
+
+const broadLandSports: TrainingProfile[] = ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational", "athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"];
+
+const supplementalFocusExercises: ExerciseDefinition[] = [
+  { name: "Depth jump", category: "Eksplosivitet", target: "Reaktiv styrke · landing", cue: "Træd ned, land kort og spring straks op med stabil knælinje", sets: "4", reps: "4", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Reaktiv styrke" },
+  { name: "Broad jump", category: "Eksplosivitet", target: "Horisontal power · landing", cue: "Skab kraft gennem hoften og land balanceret på begge fødder", sets: "5", reps: "3", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Horisontal power" },
+  { name: "Jump squat", category: "Eksplosivitet", target: "Ben · eksplosivitet", cue: "Brug let belastning, spring maksimalt og land roligt før næste gentagelse", sets: "4", reps: "5", weight: "20", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Eksplosivitet" },
+  { name: "Plyometric push-up", category: "Eksplosivitet", target: "Bryst · eksplosivt pres", cue: "Pres hurtigt fra gulvet og land med bløde albuer", sets: "4", reps: "5", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Overkropspower" },
+  { name: "Medicine ball chest pass", category: "Eksplosivitet", target: "Bryst · kastekraft", cue: "Kast eksplosivt fra en stabil kropsposition og nulstil mellem kast", sets: "5", reps: "5", weight: "5", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Kastekraft" },
+  { name: "Medicine ball scoop toss", category: "Eksplosivitet", target: "Hofte · rotationskraft", cue: "Start kraften fra ben og hofte og afslut kastet uden at overrotere", sets: "4", reps: "5 pr. side", weight: "5", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Rotationspower" },
+  { name: "Banded pull-apart", category: "Elastik", target: "Øvre ryg · skulderkontrol", cue: "Hold ribbenene nede og træk elastikken fra hinanden uden at løfte skuldrene", sets: "3", reps: "15", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Skulderkontrol" },
+  { name: "Banded face pull", category: "Elastik", target: "Øvre ryg · bagskulder", cue: "Træk mod øjenhøjde og afslut med underarmene lodrette", sets: "3", reps: "12", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Skulderrobusthed" },
+  { name: "Banded lateral walk", category: "Elastik", target: "Hofte · knækontrol", cue: "Hold konstant spænding i elastikken og bækkenet i ro", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Hoftekontrol" },
+  { name: "Banded good morning", category: "Elastik", target: "Bagkæde · hoftehængsel", cue: "Skub hoften tilbage og bevar en lang neutral ryg", sets: "3", reps: "12", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Bagkæde" },
+  { name: "Banded hip-flexion march", category: "Elastik", target: "Hoftebøjer · løbestabilitet", cue: "Løft ét knæ uden at læne kroppen eller miste bækkenkontrol", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Hoftekontrol" },
+  { name: "Banded Pallof press", category: "Elastik", target: "Core · antirotation", cue: "Pres hænderne frem og modstå elastikkens rotation", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Antirotation" },
+  { name: "Single-arm dumbbell bench press", category: "Unilateral", target: "Bryst · ensidig corekontrol", cue: "Hold bækken og ribben lige, mens én arm presser", sets: "4", reps: "8 pr. side", weight: "20", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidigt pres" },
+  { name: "Single-arm dumbbell overhead press", category: "Unilateral", target: "Skulder · ensidig stabilitet", cue: "Pres lodret uden at læne overkroppen til siden", sets: "3", reps: "8 pr. side", weight: "15", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidigt pres" },
+  { name: "Single-arm cable row", category: "Unilateral", target: "Ryg · ensidig trækkraft", cue: "Træk albuen tilbage uden at rotere kroppen", sets: "4", reps: "8 pr. side", weight: "25", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Ensidigt træk" },
+  { name: "Single-leg squat to box", category: "Unilateral", target: "Ben · balance · knækontrol", cue: "Sæt dig kontrolleret til boksen og pres op gennem hele foden", sets: "3", reps: "6 pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidig benstyrke" },
+  { name: "Single-leg calf raise", category: "Unilateral", target: "Læg · ankelkontrol", cue: "Arbejd gennem fuldt bevægeudslag uden at rulle ud over foden", sets: "3", reps: "12 pr. side", weight: "10", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Ensidig lægstyrke" },
+  { name: "Single-arm farmer carry", category: "Unilateral", target: "Greb · lateral core", cue: "Gå højt uden at læne dig mod vægten", sets: "4", reps: "30 m pr. side", weight: "24", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Ensidig carry" },
+  { name: "A-skip", category: "Koordination", target: "Løberytme · fodisæt", cue: "Hold en høj kropsposition og ram jorden aktivt under hoften", sets: "4", reps: "20 m", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Løbekoordination" },
+  { name: "Lateral ladder drill", category: "Koordination", target: "Fodarbejde · rytme", cue: "Arbejd let på fødderne og øg først farten, når mønsteret er sikkert", sets: "4", reps: "2 gennemløb", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Fodarbejde" },
+  { name: "Carioca drill", category: "Koordination", target: "Hoftekoordination · sidebevægelse", cue: "Roter gennem hoften med rolig overkrop og jævn rytme", sets: "4", reps: "20 m pr. side", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Koordination" },
+  { name: "Cross-crawl", category: "Koordination", target: "Krydskoordination · core", cue: "Bevæg modsatte arm og ben langsomt uden at miste kropslinjen", sets: "3", reps: "10 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Krydskoordination" },
+  { name: "Single-leg balance reach", category: "Koordination", target: "Balance · ankel · hofte", cue: "Hold standbenet stabilt og nå kontrolleret i flere retninger", sets: "3", reps: "5 pr. side", weight: "0", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Balance" },
+  { name: "Stir-the-pot", category: "Core", target: "Core · anti-ekstension", cue: "Hold kroppen stabil og tegn små cirkler med underarmene", sets: "3", reps: "8 hver vej", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Corekontrol" },
+  { name: "Bear crawl", category: "Core", target: "Core · skulderstabilitet · koordination", cue: "Hold knæene tæt over gulvet og bevæg modsatte hånd og fod sammen", sets: "4", reps: "20 m", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekoordination" },
+  { name: "Body saw", category: "Core", target: "Core · anti-ekstension", cue: "Bevar bækkenet neutralt, mens kroppen glider kontrolleret frem og tilbage", sets: "3", reps: "10", weight: "0", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekontrol" },
+  { name: "Half-kneeling anti-rotation hold", category: "Core", target: "Antirotation · hoftekontrol", cue: "Hold bryst og bækken lige frem mod kabeltrækket", sets: "3", reps: "20 sek pr. side", weight: "12", sports: broadLandSports, difficulty: "Begynder", visibility: "athlete", focus: "Antirotation" },
+  { name: "Cable dead bug", category: "Core", target: "Core · krydsstabilitet", cue: "Hold lænden stabil, mens modsatte arm og ben strækkes", sets: "3", reps: "8 pr. side", weight: "10", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekontrol" },
+];
+
+const inferredTags = (exercise: ExerciseDefinition): ExerciseFocusTag[] => {
+  const text = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.focus ?? ""}`.toLocaleLowerCase("da-DK");
+  const tags: ExerciseFocusTag[] = [];
+  if (/eksplos|power|spring|jump|kast|throw|slam|sprint|acceleration|reaktiv|snatch|clean|jerk/.test(text)) tags.push("Eksplosivitet");
+  if (/band|elastik/.test(text)) tags.push("Elastik");
+  if (/single|enarm|enben|ensidig|split|lunge|step-up|pr\. side|pr\. ben/.test(text)) tags.push("Unilateral");
+  if (/koordination|balance|fodarbejde|timing|ladder|a-skip|carioca|cross-crawl|skater|agility|retningsskift/.test(text)) tags.push("Koordination");
+  if (/core|plank|pallof|dead bug|bird dog|hollow|ab wheel|carry|rotation|stabilitet|anti-ekstension|antirotation/.test(text)) tags.push("Core");
+  return tags;
+};
+
+const normalizeExercise = (exercise: ExerciseDefinition): ExerciseDefinition => ({
+  ...exercise,
+  reps: clarifyUnilateralReps(exercise.name, exercise.reps),
+  sports: exercise.sports ?? (exercise.category === "Svømning" || exercise.category === "Svømmestyrke" ? ["long_distance", "middle_distance", "sprint", "triathlon", "ironman"] : ["weightlifting", "recreational"]),
+  difficulty: exercise.difficulty ?? "Øvet",
+  visibility: exercise.visibility ?? (exercise.category === "Svømning" ? "coach_only" : "athlete"),
+  focus: exercise.focus ?? exercise.target.split("·")[0].trim(),
+  tags: Array.from(new Set([...(exercise.tags ?? []), ...inferredTags(exercise)])),
+});
+
+export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource, ...catalogHighlights, ...curatedSportExercises, ...supplementalFocusExercises].map(normalizeExercise);

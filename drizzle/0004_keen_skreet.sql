@@ -1,0 +1,1 @@
+ALTER TABLE `test_participants` ADD `training_profile` text;
