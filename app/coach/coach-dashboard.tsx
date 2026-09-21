@@ -32,7 +32,8 @@ type LibraryCategory = "Alle" | ExerciseDefinition["category"];
 type LibraryFocus = "Alle" | ExerciseFocusTag;
 
 const waterTemplates = Object.values(swimPlans).flat().filter((day) => day.programId && day.exercises.length > 0);
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const localIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const todayIso = () => localIsoDate(new Date());
 const emptyDraft = () => ({ id: null as string | null, title: "", focus: "Teknisk kvalitet og en tydelig opgave", scheduledDate: todayIso(), trainingType: "strength" as "strength" | "swim", exercises: [] as DraftExercise[] });
 
 const dateLabel = (value: string | null) => {
@@ -157,7 +158,7 @@ export function CoachDashboard() {
         const day = days[index];
         const scheduledDate = new Date(firstMonday);
         scheduledDate.setDate(firstMonday.getDate() + (day.week - 1) * 7 + [0, 2, 5][index % 3]);
-        const response = await fetch("/api/coach/plans", { method: "POST", headers: requestHeaders(true), body: JSON.stringify({ testerId: selectedId, title: day.title, focus: day.focus, scheduledDate: scheduledDate.toISOString().slice(0, 10), trainingType: ["long_distance", "middle_distance", "sprint"].includes(template.sportId) ? "swim" : "strength", exercises: day.exercises }) });
+        const response = await fetch("/api/coach/plans", { method: "POST", headers: requestHeaders(true), body: JSON.stringify({ testerId: selectedId, title: day.title, focus: day.focus, scheduledDate: localIsoDate(scheduledDate), trainingType: ["long_distance", "middle_distance", "sprint"].includes(template.sportId) ? "swim" : "strength", exercises: day.exercises }) });
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) throw new Error(payload?.error ?? `Uge ${day.week} kunne ikke tildeles.`);
       }

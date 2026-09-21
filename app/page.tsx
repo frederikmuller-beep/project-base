@@ -57,6 +57,20 @@ type ExerciseHistoryData = {
 
 const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
 const formatTimer = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+const formatDeviceDate = (date: Date) => new Intl.DateTimeFormat("da-DK", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+}).format(date).toLocaleUpperCase("da-DK");
+const formatDeviceShortDate = (date: Date) => new Intl.DateTimeFormat("da-DK", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+}).format(date);
+const formatDeviceTime = (date: Date) => new Intl.DateTimeFormat("da-DK", {
+  hour: "2-digit",
+  minute: "2-digit",
+}).format(date);
 const exerciseEffortMetric = (exercise: SessionExercise) => exercise.effortMetric ?? (exercise.tracking === "distance" ? "heart_rate_zone" : "rir");
 const defaultEffortValue = (exercise: SessionExercise) => exerciseEffortMetric(exercise) === "heart_rate_zone" ? "2" : exercise.effortTarget?.startsWith("4") ? "5" : "3";
 const effortLabel = (metric: "rpe" | "rir" | "heart_rate_zone") => metric === "heart_rate_zone" ? "PULSZONE" : metric === "rir" ? "RIR" : "RPE";
@@ -74,6 +88,7 @@ const positionFromCompletedSets = (plan: SessionExercise[], completedSets: numbe
 
 export default function Home() {
   const [view, setView] = useState<View>("today");
+  const [deviceNow, setDeviceNow] = useState<Date | null>(null);
   const [energy, setEnergy] = useState(3);
   const [sleep, setSleep] = useState(3);
   const [soreness, setSoreness] = useState(3);
@@ -242,6 +257,27 @@ export default function Home() {
   useEffect(() => {
     sessionLogsRef.current = sessionLogs;
   }, [sessionLogs]);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    const syncWithDeviceClock = () => {
+      const now = new Date();
+      setDeviceNow(now);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(syncWithDeviceClock, 60_000 - (now.getSeconds() * 1_000 + now.getMilliseconds()) + 50);
+    };
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") syncWithDeviceClock();
+    };
+    syncWithDeviceClock();
+    window.addEventListener("focus", syncWithDeviceClock);
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", syncWithDeviceClock);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (!restRunning) return;
@@ -712,12 +748,16 @@ export default function Home() {
           </span>
           <span className="brand-wordmark"><b>BASE</b><strong>.</strong></span>
         </div>
+        <time className="device-clock" dateTime={deviceNow?.toISOString()}>
+          <span>{deviceNow ? formatDeviceShortDate(deviceNow) : "—"}</span>
+          <strong>{deviceNow ? formatDeviceTime(deviceNow) : "—"}</strong>
+        </time>
         <button className="avatar" aria-label="Åbn profil">MH</button>
       </header>
 
       {view === "today" && (
         <section className="screen enter">
-          <p className="eyebrow">{activeProfile === "weightlifting" ? "MANDAG · 3. AUGUST" : "TIRSDAG · 11. AUGUST"}</p>
+          <p className="eyebrow">{deviceNow ? formatDeviceDate(deviceNow) : "LOKAL DATO"}</p>
           <h1>God træning.</h1>
           <p className="lede">Dit program er tilpasset {trainingProfileLabel(activeProfile).toLocaleLowerCase("da-DK")}.</p>
 

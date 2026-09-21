@@ -172,6 +172,22 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(exerciseVideoData, /"Front squat"/);
 });
 
+test("uses the viewing device clock and local calendar dates", async () => {
+  const [page, coachDashboard] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/coach/coach-dashboard.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /className="device-clock"/);
+  assert.match(page, /new Intl\.DateTimeFormat\("da-DK"/);
+  assert.match(page, /document\.visibilityState === "visible"/);
+  assert.match(page, /window\.addEventListener\("focus", syncWithDeviceClock\)/);
+  assert.doesNotMatch(page, /MANDAG · 3\. AUGUST|TIRSDAG · 11\. AUGUST/);
+  assert.match(coachDashboard, /const localIsoDate = \(date: Date\)/);
+  assert.match(coachDashboard, /scheduledDate: localIsoDate\(scheduledDate\)/);
+  assert.doesNotMatch(coachDashboard, /scheduledDate: scheduledDate\.toISOString\(\)\.slice\(0, 10\)/);
+});
+
 test("persists feedback through the declared D1 database", async () => {
   const [hosting, schema, route, migration] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
