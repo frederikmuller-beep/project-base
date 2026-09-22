@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { healthProviderLabel, healthTrendLabel, type HealthSummary } from "../lib/health-data";
-import type { AthleteDashboardData, ExerciseHistorySession, HistoricalLoadRecommendation, LoadSuggestion, TechniqueQuality } from "../lib/training-analytics";
+import { estimatedOneRepMax, parseEffortRepCount, type AdaptiveExerciseFocus, type AthleteDashboardData, type ExerciseHistorySession, type HistoricalLoadRecommendation, type LoadSuggestion, type TechniqueQuality } from "../lib/training-analytics";
 import { AthleteDashboard } from "./athlete-dashboard";
 import { exerciseFocusTags, exerciseLibrary, type ExerciseDefinition, type ExerciseFocusTag } from "./exercise-data";
 import { availableSessionExercises, definitionToContextualSessionExercise, fiveExerciseAlternatives } from "./exercise-alternatives";
@@ -53,6 +53,8 @@ type ExerciseHistoryData = {
   exerciseName: string;
   history: ExerciseHistorySession[];
   recommendation: HistoricalLoadRecommendation | null;
+  estimatedOneRepMax: number | null;
+  adaptiveFocus: AdaptiveExerciseFocus | null;
 };
 
 const setLogKey = (exercisePosition: number, setPosition: number) => `${exercisePosition}:${setPosition}`;
@@ -258,6 +260,13 @@ export default function Home() {
   const restRunning = restStartedAt !== null;
   const restSecondsRemaining = Math.max(0, restTargetSeconds - restElapsedSeconds);
   const restOvertimeSeconds = Math.max(0, restElapsedSeconds - restTargetSeconds);
+  const displayedEstimatedOneRepMax = currentEffortMetric === "rir"
+    ? exerciseHistory?.estimatedOneRepMax ?? estimatedOneRepMax(Number.parseFloat(weight) || 0, parseEffortRepCount(reps), Number.parseFloat(rpe) || 0)
+    : null;
+  const displayedIntensityPercent = displayedEstimatedOneRepMax && Number.parseFloat(weight) > 0
+    ? Math.round((Number.parseFloat(weight) / displayedEstimatedOneRepMax) * 100)
+    : null;
+  const adaptiveFocusApplied = Boolean(exerciseHistory?.adaptiveFocus?.assistanceExercises.every((name) => sessionPlan.some((exercise) => exercise.name === name)));
 
   const startRestTimer = (targetSeconds: number) => {
     setRestTargetSeconds(targetSeconds);
@@ -621,6 +630,31 @@ export default function Home() {
     } finally {
       setCustomizingSession(false);
     }
+  };
+
+  const applyAdaptiveFocus = async () => {
+    const focus = exerciseHistory?.adaptiveFocus;
+    if (!focus || adaptiveFocusApplied) return;
+    const definitions = focus.assistanceExercises
+      .map((name) => availableSessionExercises(activeProfile).find((exercise) => exercise.name === name))
+      .filter((exercise): exercise is ExerciseDefinition => Boolean(exercise));
+    if (definitions.length === 0) return;
+    const nextPlan = [...sessionPlan];
+    const protectedIndexes = new Set(Object.values(sessionLogs).map((log) => log.exerciseIndex));
+    const usedIndexes = new Set<number>();
+    for (const definition of definitions) {
+      if (nextPlan.some((exercise) => exercise.name === definition.name)) continue;
+      const replaceIndex = nextPlan.findIndex((exercise, index) =>
+        index !== exerciseIndex && !protectedIndexes.has(index) && !usedIndexes.has(index) && exercise.programRole === "assistance",
+      );
+      if (replaceIndex >= 0) {
+        nextPlan[replaceIndex] = definitionToContextualSessionExercise(definition, nextPlan, nextPlan[replaceIndex]);
+        usedIndexes.add(replaceIndex);
+      } else {
+        nextPlan.push(definitionToContextualSessionExercise(definition, nextPlan));
+      }
+    }
+    await customizeTodaySession(nextPlan);
   };
 
   const addExerciseToPlannedDay = async (day: ProgramDay, exercise: ExerciseDefinition) => {
@@ -1267,6 +1301,14 @@ export default function Home() {
               </button>
             </article>
           )}
+          {exerciseHistory?.adaptiveFocus && (
+            <article className="adaptive-focus-card">
+              <div><span>BASE · 2-UGERS FOKUS</span><strong>{exerciseHistory.adaptiveFocus.headline}</strong><small>{exerciseHistory.adaptiveFocus.reasons[0]}</small></div>
+              <ul>{exerciseHistory.adaptiveFocus.assistanceExercises.map((name) => <li key={name}>{name}</li>)}</ul>
+              <p>BASE omfordeler eksisterende assistance, hvor det er muligt, så den samlede belastning ikke bare vokser.</p>
+              <button onClick={applyAdaptiveFocus} disabled={customizingSession || adaptiveFocusApplied}>{adaptiveFocusApplied ? "Fokus er indarbejdet" : customizingSession ? "Tilpasser…" : "Indarbejd fokus i passet"}</button>
+            </article>
+          )}
           {historyOpen && exerciseHistory && (
             <article className="exercise-history-panel">
               <div className="exercise-history-title"><span>TIDLIGERE SÆT</span><strong>{exerciseHistory.exerciseName}</strong></div>
@@ -1315,6 +1357,9 @@ export default function Home() {
               <label>{currentExercise.tracking === "distance" ? "DISTANCE" : "REPS"}<input inputMode="text" value={reps} onChange={e => setReps(e.target.value)} disabled={setSaved} /></label>
               <label>{effortLabel(currentEffortMetric)}{currentEffortMetric === "heart_rate_zone" ? <select value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved}>{[1, 2, 3, 4, 5].map((zone) => <option key={zone} value={zone}>Zone {zone}</option>)}</select> : <input inputMode="decimal" value={rpe} onChange={e => setRpe(e.target.value)} disabled={setSaved} />}</label>
             </div>
+            {currentEffortMetric === "rir" && displayedIntensityPercent !== null && displayedEstimatedOneRepMax !== null && (
+              <div className="estimated-max-explainer"><span>{displayedIntensityPercent}%</span><div><strong>af estimeret 1RM · {String(Math.round(displayedEstimatedOneRepMax * 10) / 10).replace(".", ",")} kg</strong><small>{exerciseHistory?.estimatedOneRepMax ? "Beregnet fra dine seneste udførte sæt." : "Foreløbigt beregnet ud fra vægt, reps og RIR."} Derfor føles dagens belastning sådan.</small></div></div>
+            )}
             {currentEffortMetric === "rir" && (
               <div className="technique-quality">
                 <div><strong>Teknisk kvalitet</strong><small>Vurdér sættet ærligt — det indgår i BASEs belastningsforslag.</small></div>

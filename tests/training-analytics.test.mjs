@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildAdaptiveExerciseFocus,
   buildHistoricalLoadRecommendation,
   buildLoadSuggestion,
   calculateActualWorkload,
   calculatePlannedWorkload,
   estimatedOneRepMax,
+  estimatedOneRepMaxFromHistory,
   majorLiftForExercise,
   majorStrengthLifts,
   parseEffortRepCount,
@@ -72,4 +74,25 @@ test("uses the latest completed exercise prescription to set the next starting w
   const difficult = buildHistoricalLoadRecommendation({ plannedWeight: 65, history: [{ ...completeHistory[0], sets: completeHistory[0].sets.map((set) => ({ ...set, rir: "1", techniqueQuality: "poor" })) }] });
   assert.equal(difficult.decision, "decrease");
   assert.equal(difficult.proposedWeight, 67.5);
+});
+
+test("adds targeted assistance only after problems repeat across two weeks", () => {
+  const difficultSession = (programId, date, setCount = 3) => ({
+    programId,
+    title: "Squatpas",
+    date,
+    plannedSets: 4,
+    sets: Array.from({ length: setCount }, (_, setIndex) => ({ setIndex, weight: "100", reps: "5", rir: "1", techniqueQuality: "poor" })),
+  });
+  const history = [
+    difficultSession("w2-b", "2026-09-17 10:00:00"),
+    difficultSession("w2-a", "2026-09-15 10:00:00"),
+    difficultSession("w1", "2026-09-08 10:00:00"),
+  ];
+  const focus = buildAdaptiveExerciseFocus({ exerciseName: "Back squat", history });
+  assert.equal(focus?.observedWeeks, 2);
+  assert.deepEqual(focus?.assistanceExercises, ["Pause back squat", "Bulgarian split squat"]);
+  assert.match(focus?.reasons.join(" ") ?? "", /to seneste registrerede uger/);
+  assert.equal(buildAdaptiveExerciseFocus({ exerciseName: "Back squat", history: history.slice(0, 2) }), null);
+  assert.equal(estimatedOneRepMaxFromHistory(history), 120);
 });

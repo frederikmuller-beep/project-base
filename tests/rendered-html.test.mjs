@@ -161,6 +161,13 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /Date\.now\(\) - restStartedAt/);
   assert.match(page, /window\.addEventListener\("focus", syncRestTimer\)/);
   assert.doesNotMatch(page, /setRestSecondsRemaining/);
+  assert.match(page, /BASE · 2-UGERS FOKUS/);
+  assert.match(page, /Indarbejd fokus i passet/);
+  assert.match(page, /displayedIntensityPercent/);
+  assert.match(page, /af estimeret 1RM/);
+  assert.match(page, /Derfor føles dagens belastning sådan/);
+  assert.match(page, /applyAdaptiveFocus/);
+  assert.match(page, /exerciseHistory\.adaptiveFocus\.assistanceExercises/);
   assert.match(page, /Se og ret udførte sæt/);
   assert.match(page, /Rediger dette sæt/);
   assert.match(page, /openLoggedSet/);

@@ -2,7 +2,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { coachTrainingPlans, testParticipants, trainingSessions, trainingSetLogs } from "../../../../db/schema";
 import { coachPlanToProgramDay } from "../../../../lib/coach-plans";
-import { buildHistoricalLoadRecommendation, type ExerciseHistorySession } from "../../../../lib/training-analytics";
+import { buildAdaptiveExerciseFocus, buildHistoricalLoadRecommendation, estimatedOneRepMaxFromHistory, type ExerciseHistorySession } from "../../../../lib/training-analytics";
 import { getTesterId } from "../../../../lib/tester-session";
 import { parseSessionExercises } from "../../../../lib/session-exercises";
 import type { ProgramDay } from "../../../program-data";
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     const currentExercises = currentProgram ? parseSessionExercises(currentSession?.customExercises, currentProgram.exercises) : [];
     const currentExercise = currentExercises[exerciseIndex];
     if (!currentProgram || !currentExercise || currentExercise.tracking === "distance") {
-      return Response.json({ history: [], recommendation: null }, { headers: { "cache-control": "private, no-store" } });
+      return Response.json({ history: [], recommendation: null, estimatedOneRepMax: null, adaptiveFocus: null }, { headers: { "cache-control": "private, no-store" } });
     }
 
     const sessionIds = sessions.map((session) => session.id);
@@ -93,7 +93,9 @@ export async function GET(request: Request) {
     }
     history.sort((a, b) => b.date.localeCompare(a.date));
     const recommendation = buildHistoricalLoadRecommendation({ plannedWeight: Number.parseFloat(currentExercise.defaultWeight) || 0, history });
-    return Response.json({ exerciseName: currentExercise.name, history, recommendation }, { headers: { "cache-control": "private, no-store" } });
+    const estimatedOneRepMax = estimatedOneRepMaxFromHistory(history);
+    const adaptiveFocus = buildAdaptiveExerciseFocus({ exerciseName: currentExercise.name, history });
+    return Response.json({ exerciseName: currentExercise.name, history, recommendation, estimatedOneRepMax, adaptiveFocus }, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {
     return Response.json({ error: unavailableMessage(error) ? "Øvelseshistorikken er ved at blive gjort klar." : "Øvelseshistorikken kunne ikke hentes." }, { status: 500 });
   }

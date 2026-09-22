@@ -52,6 +52,13 @@ export type HistoricalLoadRecommendation = {
   reasons: string[];
 };
 
+export type AdaptiveExerciseFocus = {
+  observedWeeks: 2;
+  headline: string;
+  reasons: string[];
+  assistanceExercises: string[];
+};
+
 export const majorStrengthLifts = [
   { id: "clean", label: "Clean", exerciseNames: ["Clean"] },
   { id: "power-clean", label: "Power clean", exerciseNames: ["Power clean"] },
@@ -107,6 +114,78 @@ export const parseRepCount = (value: string) => {
 
 export const estimatedOneRepMax = (weight: number, reps: number, rir: number) =>
   weight > 0 && reps > 0 ? weight * (1 + (reps + Math.max(0, rir)) / 30) : 0;
+
+export const estimatedOneRepMaxFromHistory = (history: ExerciseHistorySession[]) => {
+  const estimates = history.slice(0, 6).flatMap((session) => session.sets.map((set) =>
+    estimatedOneRepMax(Number.parseFloat(set.weight) || 0, parseEffortRepCount(set.reps), Number.parseFloat(set.rir) || 0),
+  )).filter((estimate) => estimate > 0);
+  return estimates.length > 0 ? Math.round(Math.max(...estimates) * 10) / 10 : null;
+};
+
+const assistanceByLift: Record<MajorStrengthLift["id"], string[]> = {
+  clean: ["Pause clean", "Clean pull with pause"],
+  "power-clean": ["High hang clean", "Clean pull"],
+  jerk: ["Pause jerk", "Press in split"],
+  "clean-and-jerk": ["Pause clean", "Pause jerk"],
+  snatch: ["Pause snatch", "Snatch pull with pause"],
+  "power-snatch": ["High hang snatch", "Snatch balance"],
+  "front-squat": ["Pause front squat", "Tempo front squat"],
+  squat: ["Pause back squat", "Bulgarian split squat"],
+  deadlift: ["Romanian deadlift", "Hip thrust"],
+  "bench-press": ["Incline dumbbell bench press", "Dips"],
+  "overhead-press": ["Dumbbell shoulder press", "Face pull"],
+};
+
+const trainingWeekKey = (value: string) => {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  const daysSinceMonday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+  return date.toISOString().slice(0, 10);
+};
+
+const problemSignals = (session: ExerciseHistorySession) => {
+  const validSets = session.sets.filter((set) => Number.parseFloat(set.weight) > 0);
+  const rirValues = validSets.map((set) => Number.parseFloat(set.rir)).filter(Number.isFinite);
+  const averageRir = rirValues.length > 0 ? rirValues.reduce((sum, value) => sum + value, 0) / rirValues.length : null;
+  const poorTechnique = validSets.some((set) => set.techniqueQuality === "poor");
+  const uncertainTechnique = validSets.filter((set) => set.techniqueQuality === "uncertain").length >= Math.max(1, Math.ceil(validSets.length / 2));
+  const signals = [
+    validSets.length < session.plannedSets ? "Planlagte sæt blev ikke gennemført" : null,
+    poorTechnique ? "Teknikken blev vurderet som ikke god" : uncertainTechnique ? "Teknikken var usikker i flere sæt" : null,
+    averageRir !== null && averageRir < 1.5 ? "Belastningen lå under 1,5 RIR i gennemsnit" : null,
+  ].filter((signal): signal is string => Boolean(signal));
+  return { signals, problem: poorTechnique || signals.length >= 2 };
+};
+
+export const buildAdaptiveExerciseFocus = ({
+  exerciseName,
+  history,
+}: {
+  exerciseName: string;
+  history: ExerciseHistorySession[];
+}): AdaptiveExerciseFocus | null => {
+  const lift = majorLiftForExercise(exerciseName);
+  if (!lift) return null;
+  const recentByWeek = new Map<string, ExerciseHistorySession[]>();
+  for (const session of history.slice(0, 8)) {
+    const key = trainingWeekKey(session.date);
+    recentByWeek.set(key, [...(recentByWeek.get(key) ?? []), session]);
+  }
+  const recentWeeks = [...recentByWeek.keys()].sort((left, right) => right.localeCompare(left)).slice(0, 2);
+  if (recentWeeks.length < 2) return null;
+  const recentSessions = recentWeeks.flatMap((week) => recentByWeek.get(week) ?? []);
+  if (recentSessions.length < 3) return null;
+  const weekAssessments = recentWeeks.map((week) => (recentByWeek.get(week) ?? []).map(problemSignals));
+  if (!weekAssessments.every((assessments) => assessments.some((assessment) => assessment.problem))) return null;
+  const reasons = [...new Set(weekAssessments.flat().flatMap((assessment) => assessment.signals))].slice(0, 2);
+  return {
+    observedWeeks: 2,
+    headline: `${lift.label} får målrettet fokus i næste træning`,
+    reasons: [`Problemet går igen i de to seneste registrerede uger`, ...reasons],
+    assistanceExercises: assistanceByLift[lift.id],
+  };
+};
 
 const setIntensity = (reps: number, rir: number) => {
   const estimateFactor = 1 + (reps + Math.max(0, rir)) / 30;
