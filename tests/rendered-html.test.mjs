@@ -155,7 +155,12 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /href="\/coach"/);
   assert.match(page, /Åbn træneroverblik/);
   assert.match(page, /PAUSETIMER/);
-  assert.match(page, /setRestSecondsRemaining/);
+  assert.match(page, /REEL PAUSE/);
+  assert.match(page, /OVER ANBEFALING/);
+  assert.match(page, /startRestTimer\(currentExercise\.restSeconds \?\? 90\)/);
+  assert.match(page, /Date\.now\(\) - restStartedAt/);
+  assert.match(page, /window\.addEventListener\("focus", syncRestTimer\)/);
+  assert.doesNotMatch(page, /setRestSecondsRemaining/);
   assert.match(page, /Se og ret udførte sæt/);
   assert.match(page, /Rediger dette sæt/);
   assert.match(page, /openLoggedSet/);

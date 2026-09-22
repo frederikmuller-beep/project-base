@@ -135,8 +135,10 @@ export default function Home() {
   const [sessionLogs, setSessionLogs] = useState<Record<string, TrainingSetLog>>({});
   const [editingSetKey, setEditingSetKey] = useState<string | null>(null);
   const [resumePosition, setResumePosition] = useState<{ exerciseIndex: number; setIndex: number } | null>(null);
-  const [restSecondsRemaining, setRestSecondsRemaining] = useState(90);
-  const [restRunning, setRestRunning] = useState(false);
+  const [restTargetSeconds, setRestTargetSeconds] = useState(90);
+  const [restElapsedSeconds, setRestElapsedSeconds] = useState(0);
+  const [restElapsedAtStart, setRestElapsedAtStart] = useState(0);
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -253,6 +255,36 @@ export default function Home() {
     () => Object.values(sessionLogs).sort((a, b) => a.exerciseIndex - b.exerciseIndex || a.setIndex - b.setIndex),
     [sessionLogs],
   );
+  const restRunning = restStartedAt !== null;
+  const restSecondsRemaining = Math.max(0, restTargetSeconds - restElapsedSeconds);
+  const restOvertimeSeconds = Math.max(0, restElapsedSeconds - restTargetSeconds);
+
+  const startRestTimer = (targetSeconds: number) => {
+    setRestTargetSeconds(targetSeconds);
+    setRestElapsedSeconds(0);
+    setRestElapsedAtStart(0);
+    setRestStartedAt(Date.now());
+  };
+
+  const resetRestTimer = (targetSeconds: number) => {
+    setRestTargetSeconds(targetSeconds);
+    setRestElapsedSeconds(0);
+    setRestElapsedAtStart(0);
+    setRestStartedAt(null);
+  };
+
+  const pauseRestTimer = () => {
+    if (restStartedAt === null) return;
+    const elapsed = restElapsedAtStart + Math.max(0, Math.floor((Date.now() - restStartedAt) / 1000));
+    setRestElapsedSeconds(elapsed);
+    setRestElapsedAtStart(elapsed);
+    setRestStartedAt(null);
+  };
+
+  const resumeRestTimer = () => {
+    setRestElapsedAtStart(restElapsedSeconds);
+    setRestStartedAt(Date.now());
+  };
 
   useEffect(() => {
     sessionLogsRef.current = sessionLogs;
@@ -280,18 +312,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!restRunning) return;
-    const timer = window.setInterval(() => {
-      setRestSecondsRemaining((seconds) => {
-        if (seconds <= 1) {
-          setRestRunning(false);
-          return 0;
-        }
-        return seconds - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [restRunning]);
+    if (restStartedAt === null) return;
+    const syncRestTimer = () => {
+      setRestElapsedSeconds(restElapsedAtStart + Math.max(0, Math.floor((Date.now() - restStartedAt) / 1000)));
+    };
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") syncRestTimer();
+    };
+    syncRestTimer();
+    const timer = window.setInterval(syncRestTimer, 1000);
+    window.addEventListener("focus", syncRestTimer);
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", syncRestTimer);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, [restStartedAt, restElapsedAtStart]);
 
   useEffect(() => {
     if (view !== "session" || !sessionProgramId || !currentExercise || currentExercise.tracking === "distance") return;
@@ -433,7 +470,7 @@ export default function Home() {
     setAdjusted(false); setExerciseIndex(0); setSetIndex(0); setCompletedSets(0);
     setSetSaved(false); setWeight("0"); setReps(activeToday.exercises[0]?.plannedReps ?? "100 m"); setRpe(activeToday.exercises[0] ? defaultEffortValue(activeToday.exercises[0]) : "3"); setTechniqueQuality(""); setLoadSuggestion(null); setSessionPlan(activeToday.exercises);
     setSessionProgramId(null); setSaveError(""); setSessionLogs({}); setEditingSetKey(null); setResumePosition(null);
-    setRestSecondsRemaining(90); setRestRunning(false);
+    resetRestTimer(90);
     setExerciseHistory(null); setHistoryOpen(false); setHistoryLoading(false);
     setExerciseChangeMode(null); setSessionExerciseSearch(""); setCustomizingSession(false);
   };
@@ -469,8 +506,7 @@ export default function Home() {
     setExerciseHistory(null);
     setHistoryOpen(false);
     setHistoryLoading(openingExercise.tracking !== "distance");
-    setRestSecondsRemaining(openingExercise.restSeconds ?? 90);
-    setRestRunning(false);
+    resetRestTimer(openingExercise.restSeconds ?? 90);
     setView("session");
   };
 
@@ -509,8 +545,7 @@ export default function Home() {
       setCompletedSets((count) => count + 1);
       setSessionLogs((logs) => ({ ...logs, [currentSetKey]: { exerciseIndex, setIndex, weight, reps, rpe, effortMetric: currentEffortMetric, techniqueQuality: techniqueQuality || null } }));
       setSetSaved(true);
-      setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
-      setRestRunning(true);
+      startRestTimer(currentExercise.restSeconds ?? 90);
       return;
     }
 
@@ -541,8 +576,7 @@ export default function Home() {
       setLoadSuggestion(data.sparring ?? null);
       setSetSaved(true);
       if (!currentSetWasLogged) {
-        setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
-        setRestRunning(true);
+        startRestTimer(currentExercise.restSeconds ?? 90);
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Sættet kunne ikke gemmes.");
@@ -578,7 +612,7 @@ export default function Home() {
           setHistoryOpen(false);
           setHistoryLoading(replacement.tracking !== "distance");
         }
-        setRestSecondsRemaining(replacement.restSeconds ?? 90);
+        if (!restRunning) resetRestTimer(replacement.restSeconds ?? 90);
       }
       setExerciseChangeMode(null);
       setSessionExerciseSearch("");
@@ -630,7 +664,6 @@ export default function Home() {
     setTechniqueQuality(log.techniqueQuality ?? "");
     setLoadSuggestion(null);
     setSetSaved(true);
-    setRestRunning(false);
     setSaveError("");
   };
 
@@ -664,8 +697,6 @@ export default function Home() {
       setSetSaved(false);
       setTechniqueQuality("");
       setLoadSuggestion(null);
-      setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
-      setRestRunning(false);
       return;
     }
 
@@ -681,8 +712,6 @@ export default function Home() {
       setExerciseHistory(null);
       setHistoryOpen(false);
       setHistoryLoading(nextExercise.tracking !== "distance");
-      setRestSecondsRemaining(nextExercise.restSeconds ?? 90);
-      setRestRunning(false);
       return;
     }
 
@@ -697,8 +726,6 @@ export default function Home() {
     setRpe(defaultEffortValue(currentExercise));
     setTechniqueQuality("");
     setSetSaved(false);
-    setRestSecondsRemaining(currentExercise.restSeconds ?? 90);
-    setRestRunning(false);
     setLoadSuggestion(null);
   };
 
@@ -1260,15 +1287,18 @@ export default function Home() {
           <article className={`rest-timer ${restSecondsRemaining === 0 ? "finished" : ""}`}>
             <div>
               <span>PAUSETIMER</span>
-              <small>{currentExercise.restSeconds ?? 90} sek anbefalet</small>
+              <small>Starter automatisk, når sættet gemmes · {restTargetSeconds} sek anbefalet</small>
             </div>
-            <strong aria-live="polite">{formatTimer(restSecondsRemaining)}</strong>
+            <div className="rest-timer-times" aria-live="polite">
+              <div><span>REEL PAUSE</span><strong>{formatTimer(restElapsedSeconds)}</strong></div>
+              <div><span>{restSecondsRemaining > 0 ? "TILBAGE" : "OVER ANBEFALING"}</span><strong>{restSecondsRemaining > 0 ? formatTimer(restSecondsRemaining) : `+${formatTimer(restOvertimeSeconds)}`}</strong></div>
+            </div>
             <div className="rest-timer-actions">
-              <button onClick={() => setRestRunning((running) => !running)} disabled={restSecondsRemaining === 0}>
+              <button onClick={restRunning ? pauseRestTimer : resumeRestTimer}>
                 {restRunning ? "Pause" : "Start"}
               </button>
-              <button onClick={() => { setRestSecondsRemaining(currentExercise.restSeconds ?? 90); setRestRunning(false); }}>Nulstil</button>
-              <button onClick={() => setRestSecondsRemaining((seconds) => seconds + 30)}>+30 sek</button>
+              <button onClick={() => resetRestTimer(currentExercise.restSeconds ?? 90)}>Nulstil</button>
+              <button onClick={() => setRestTargetSeconds((seconds) => seconds + 30)}>+30 sek</button>
             </div>
           </article>
           {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Træn med rolig intensitet</strong><small>Readiness · gul · behold teknisk kvalitet</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
