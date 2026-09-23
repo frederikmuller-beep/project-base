@@ -1287,22 +1287,25 @@ export default function Home() {
           <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
-          <div className="session-exercise-actions">
-            <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={currentExerciseHasLogs || customizingSession}>Skift øvelse</button>
-            <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "add" ? null : "add")} disabled={sessionPlan.length >= 12 || customizingSession}>+ Tilføj ekstra øvelse</button>
-          </div>
-          <div className="session-set-controls">
-            <button
-              onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets - 1 } : exercise), exerciseIndex)}
-              disabled={currentExercise.sets <= minimumCurrentExerciseSets || customizingSession}
-            >− Fjern sæt</button>
-            <strong>{currentExercise.sets} sæt</strong>
-            <button
-              onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets + 1 } : exercise), exerciseIndex)}
-              disabled={currentExercise.sets >= 20 || customizingSession}
-            >+ Tilføj sæt</button>
-          </div>
-          {currentExerciseHasLogs && <p className="session-customize-note">Øvelsen kan ikke skiftes, efter et sæt er gemt. Dine registreringer bevares.</p>}
+          <article className="session-adjustments" aria-label="Tilpas dagens pas">
+            <div className="session-adjustments-title"><span>TILPAS DAGENS PAS</span><strong>{currentExercise.name}</strong></div>
+            <div className="session-exercise-actions">
+              <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={currentExerciseHasLogs || customizingSession}>Skift øvelse</button>
+              <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "add" ? null : "add")} disabled={sessionPlan.length >= 12 || customizingSession}>+ Tilføj ekstra øvelse</button>
+            </div>
+            <div className="session-set-controls">
+              <button
+                onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets - 1 } : exercise), exerciseIndex)}
+                disabled={currentExercise.sets <= minimumCurrentExerciseSets || customizingSession}
+              >− Fjern sæt</button>
+              <strong>{currentExercise.sets} sæt</strong>
+              <button
+                onClick={() => customizeTodaySession(sessionPlan.map((exercise, index) => index === exerciseIndex ? { ...exercise, sets: exercise.sets + 1 } : exercise), exerciseIndex)}
+                disabled={currentExercise.sets >= 20 || customizingSession}
+              >+ Tilføj sæt</button>
+            </div>
+            {currentExerciseHasLogs && <p className="session-customize-note">Øvelsen kan ikke skiftes, efter et sæt er gemt. Du kan stadig tilføje sæt og rette de gemte sæt nedenfor.</p>}
+          </article>
           {exerciseChangeMode === "replace" && (
             <article className="session-exercise-picker">
               <div><span>5 ALTERNATIVER</span><strong>Samme muskelgruppe</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
