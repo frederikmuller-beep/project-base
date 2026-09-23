@@ -158,6 +158,11 @@ export default function Home() {
   const activeToday = activePlan[0];
   const selectedWeekPlan = useMemo(() => activePlan.filter((day) => day.week === selectedWeek), [activePlan, selectedWeek]);
   const selectedWeekProgression = getWeekProgression(selectedWeek);
+  const currentProgramWeek = useMemo(() => {
+    const activeDay = activePlan.find((day) => day.programId && progress[day.programId]?.status === "active");
+    const nextIncompleteDay = activePlan.find((day) => day.programId && progress[day.programId]?.status !== "completed");
+    return activeDay?.week ?? nextIncompleteDay?.week ?? 12;
+  }, [activePlan, progress]);
   const nextProgram = useMemo(() => {
     const coachProgramIds = new Set(coachPlans.map((day) => day.programId));
     const availablePrograms = [...coachPlans, ...activePlan].filter((day) => day.programId && day.exercises.length > 0);
@@ -166,10 +171,12 @@ export default function Home() {
       ?? activePlan.find((candidate) => candidate.programId && candidate.exercises.length > 0 && progress[candidate.programId]?.status !== "completed")
       ?? null;
     if (!day?.programId) return null;
+    const dayProgress = progress[day.programId];
+    const exercises = dayProgress?.exercises?.length ? dayProgress.exercises : day.exercises;
     return {
-      day,
+      day: { ...day, exercises },
       source: coachProgramIds.has(day.programId) ? "coach" as const : "base" as const,
-      progress: progress[day.programId],
+      progress: dayProgress,
     };
   }, [activePlan, coachPlans, progress]);
   const weekTotals = useMemo(() => activePlan.reduce(
@@ -866,9 +873,9 @@ export default function Home() {
             <b>→</b>
           </button>
 
-          <button className="week-entry" onClick={() => setView("week")}>
-            <span className="week-entry-date"><strong>2</strong><small>UGER</small></span>
-            <span><strong>Åbn dit 12-ugers program</strong><small>{weekTotals.sessions} pas · {weekTotals.minutes} min · {weekTotals.sets} arbejdssæt</small></span>
+          <button className="week-entry" onClick={() => { setSelectedWeek(currentProgramWeek); setView("week"); }}>
+            <span className="week-entry-date"><strong>{currentProgramWeek}</strong><small>UGE</small></span>
+            <span><strong>Åbn dit 12-ugers program</strong><small>Fortsæt fra uge {currentProgramWeek} · {weekTotals.sessions} pas · {weekTotals.sets} arbejdssæt</small></span>
             <b>→</b>
           </button>
 

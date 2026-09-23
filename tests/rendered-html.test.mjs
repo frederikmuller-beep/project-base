@@ -33,6 +33,10 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /librarySearch/);
   assert.match(page, /activePlan/);
   assert.match(page, /Åbn dit 12-ugers program/);
+  assert.match(page, /currentProgramWeek/);
+  assert.match(page, /setSelectedWeek\(currentProgramWeek\)/);
+  assert.match(page, /Fortsæt fra uge \{currentProgramWeek\}/);
+  assert.match(page, /dayProgress\?\.exercises\?\.length \? dayProgress\.exercises : day\.exercises/);
   assert.match(page, /Dit program over 12 uger/);
   assert.match(page, /Array.from\(\{ length: 12 \}/);
   assert.match(page, /selectedWeekProgression/);
