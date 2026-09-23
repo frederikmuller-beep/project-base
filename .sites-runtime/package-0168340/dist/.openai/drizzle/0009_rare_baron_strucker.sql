@@ -1,1 +1,0 @@
-ALTER TABLE `test_participants` ADD `training_days` text;
