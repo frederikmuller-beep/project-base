@@ -264,6 +264,11 @@ export default function Home() {
     () => Object.values(sessionLogs).sort((a, b) => a.exerciseIndex - b.exerciseIndex || a.setIndex - b.setIndex),
     [sessionLogs],
   );
+  const loggedExerciseSummaries = useMemo(() => sessionPlan.map((exercise, index) => ({
+    exercise,
+    exerciseIndex: index,
+    logs: sortedSessionLogs.filter((log) => log.exerciseIndex === index),
+  })).filter((summary) => summary.logs.length > 0), [sessionPlan, sortedSessionLogs]);
   const restRunning = restStartedAt !== null;
   const restSecondsRemaining = Math.max(0, restTargetSeconds - restElapsedSeconds);
   const restOvertimeSeconds = Math.max(0, restElapsedSeconds - restTargetSeconds);
@@ -706,6 +711,17 @@ export default function Home() {
     setLoadSuggestion(null);
     setSetSaved(true);
     setSaveError("");
+  };
+
+  const openLoggedExercise = (exercisePosition: number) => {
+    const firstLoggedSet = sortedSessionLogs.find((log) => log.exerciseIndex === exercisePosition);
+    if (firstLoggedSet) openLoggedSet(firstLoggedSet);
+  };
+
+  const reopenCompletedSession = () => {
+    const lastLoggedSet = sortedSessionLogs.at(-1);
+    if (lastLoggedSet) openLoggedSet(lastLoggedSet);
+    setView("session");
   };
 
   const returnToTraining = () => {
@@ -1251,6 +1267,23 @@ export default function Home() {
       {view === "session" && (
         <section className="screen enter session-screen">
           <div className="live-row"><span className="live-dot" /> TRÆNING I GANG <small>{completedSets} / {totalPlannedSets} sæt</small></div>
+          {loggedExerciseSummaries.length > 0 && (
+            <article className="logged-exercise-review">
+              <div><span>GEMTE ØVELSER</span><strong>Gå tilbage og ret</strong><small>Vælg en øvelse, og åbn derefter det sæt, der skal rettes.</small></div>
+              <div className="logged-exercise-review-list">
+                {loggedExerciseSummaries.map(({ exercise, exerciseIndex: loggedExerciseIndex, logs }) => (
+                  <button
+                    key={`${loggedExerciseIndex}-${exercise.name}`}
+                    className={loggedExerciseIndex === exerciseIndex ? "active" : ""}
+                    onClick={() => openLoggedExercise(loggedExerciseIndex)}
+                  >
+                    <span>{exercise.name}</span>
+                    <strong>{logs.length}/{exercise.sets} sæt · Ret →</strong>
+                  </button>
+                ))}
+              </div>
+            </article>
+          )}
           <p className="eyebrow">ØVELSE {exerciseIndex + 1} AF {sessionPlan.length}</p>
           <h1>{currentExercise.name}</h1>
           <p className="lede">{currentExercise.focus}.</p>
@@ -1352,9 +1385,14 @@ export default function Home() {
           </article>
           {adjusted && <div className="adjusted-note"><span>↘</span><div><strong>Træn med rolig intensitet</strong><small>Readiness · gul · behold teknisk kvalitet</small></div><button onClick={() => setAdjusted(false)}>Fortryd</button></div>}
           <div className="set-progress" style={{ gridTemplateColumns: `repeat(${currentExercise.sets}, 1fr)` }}>
-            {Array.from({ length: currentExercise.sets }, (_, index) => (
-              <span key={index} className={index < setIndex || (index === setIndex && setSaved) ? "done" : index === setIndex ? "current" : ""}>{index + 1}</span>
-            ))}
+            {Array.from({ length: currentExercise.sets }, (_, index) => {
+              const loggedSet = sessionLogs[setLogKey(exerciseIndex, index)];
+              return loggedSet ? (
+                <button key={index} type="button" className={index === setIndex ? "done current" : "done"} onClick={() => openLoggedSet(loggedSet)} aria-label={`Ret sæt ${index + 1}`}>{index + 1}</button>
+              ) : (
+                <span key={index} className={index === setIndex ? "current" : ""}>{index + 1}</span>
+              );
+            })}
           </div>
           <article className="log-card">
             <div className="set-heading"><span>SÆT {setIndex + 1} AF {currentExercise.sets}</span><strong>{currentExercise.plannedReps}{currentExercise.tracking === "distance" ? currentExercise.restSeconds ? ` · ${currentExercise.restSeconds} sek pause` : "" : " reps"}</strong></div>
@@ -1434,6 +1472,7 @@ export default function Home() {
           <h1>Godt arbejde.</h1>
           <p className="lede">Du gennemførte passet. Dine sæt er gemt på din testprofil.</p>
           <article className="summary-card"><div><strong>{completedSets}</strong><span>sæt logget</span></div><div><strong>{sessionPlan.length}</strong><span>øvelser</span></div><div><strong>{adjusted ? "−7 %" : "0 %"}</strong><span>tilpasning</span></div></article>
+          <button className="secondary" onClick={reopenCompletedSession}>Se og ret udførte øvelser og sæt</button>
           <div className="test-question"><strong>Hjælp os med at gøre BASE bedre</strong><p>Besvar 10 korte spørgsmål om denne session. Det tager cirka ét minut.</p></div>
           <button className="primary" onClick={() => openFeedback("session")}>Giv feedback på træningen</button>
           <button className="secondary" onClick={() => { reset(); setView("week"); }}>Spring over og se testprogrammet</button>

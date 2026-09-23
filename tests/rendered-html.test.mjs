@@ -173,6 +173,10 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /applyAdaptiveFocus/);
   assert.match(page, /exerciseHistory\.adaptiveFocus\.assistanceExercises/);
   assert.match(page, /Se og ret udførte sæt/);
+  assert.match(page, /Gå tilbage og ret/);
+  assert.match(page, /openLoggedExercise/);
+  assert.match(page, /aria-label={`Ret sæt \$\{index \+ 1\}`}/);
+  assert.match(page, /Se og ret udførte øvelser og sæt/);
   assert.match(page, /Rediger dette sæt/);
   assert.match(page, /openLoggedSet/);
   assert.match(page, /Træn med rolig intensitet/);
