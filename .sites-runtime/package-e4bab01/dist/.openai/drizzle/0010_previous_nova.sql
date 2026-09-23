@@ -1,0 +1,1 @@
+ALTER TABLE `training_sessions` ADD `custom_exercises` text;

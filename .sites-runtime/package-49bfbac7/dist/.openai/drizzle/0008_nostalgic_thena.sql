@@ -1,0 +1,1 @@
+ALTER TABLE `training_set_logs` ADD `technique_quality` text;
