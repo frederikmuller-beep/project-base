@@ -606,7 +606,7 @@ export default function Home() {
     }
   };
 
-  const customizeTodaySession = async (nextPlan: SessionExercise[], changedIndex?: number) => {
+  const customizeTodaySession = async (nextPlan: SessionExercise[], changedIndex?: number, focusIndex?: number) => {
     if (!sessionProgramId || customizingSession) return;
     const replacedCurrentExercise = changedIndex === exerciseIndex && nextPlan[exerciseIndex]?.name !== currentExercise.name;
     setCustomizingSession(true);
@@ -635,6 +635,20 @@ export default function Home() {
         }
         if (!restRunning) resetRestTimer(replacement.restSeconds ?? 90);
       }
+      if (focusIndex !== undefined) {
+        const focusedExercise = data.exercises[focusIndex];
+        setExerciseIndex(focusIndex);
+        setSetIndex(0);
+        setWeight(focusedExercise.defaultWeight);
+        setReps(focusedExercise.plannedReps);
+        setRpe(defaultEffortValue(focusedExercise));
+        setTechniqueQuality("");
+        setSetSaved(false);
+        setExerciseHistory(null);
+        setHistoryOpen(false);
+        setHistoryLoading(focusedExercise.tracking !== "distance");
+        if (!restRunning) resetRestTimer(focusedExercise.restSeconds ?? 90);
+      }
       setExerciseChangeMode(null);
       setSessionExerciseSearch("");
     } catch (error) {
@@ -642,6 +656,30 @@ export default function Home() {
     } finally {
       setCustomizingSession(false);
     }
+  };
+
+  const replaceCurrentExercise = async (definition: ExerciseDefinition) => {
+    if (!currentExerciseHasLogs) {
+      await customizeTodaySession(sessionPlan.map((item, index) => index === exerciseIndex ? definitionToContextualSessionExercise(definition, sessionPlan, item) : item), exerciseIndex);
+      return;
+    }
+
+    const retainedSets = minimumCurrentExerciseSets;
+    const remainingSets = Math.max(1, currentExercise.sets - retainedSets);
+    const retainedExercise = {
+      ...currentExercise,
+      sets: retainedSets,
+      detail: currentExercise.detail.replace(/^\d+\s*×/, `${retainedSets} ×`),
+    };
+    const contextualReplacement = definitionToContextualSessionExercise(definition, sessionPlan, currentExercise);
+    const replacement = {
+      ...contextualReplacement,
+      sets: remainingSets,
+      detail: contextualReplacement.detail.replace(/^\d+\s*×/, `${remainingSets} ×`),
+    };
+    const replacementIndex = sessionPlan.length;
+    const nextPlan = sessionPlan.map((item, index) => index === exerciseIndex ? retainedExercise : item).concat(replacement);
+    await customizeTodaySession(nextPlan, undefined, replacementIndex);
   };
 
   const applyAdaptiveFocus = async () => {
@@ -1290,7 +1328,7 @@ export default function Home() {
           <article className="session-adjustments" aria-label="Tilpas dagens pas">
             <div className="session-adjustments-title"><span>TILPAS DAGENS PAS</span><strong>{currentExercise.name}</strong></div>
             <div className="session-exercise-actions">
-              <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={currentExerciseHasLogs || customizingSession}>Skift øvelse</button>
+              <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "replace" ? null : "replace")} disabled={customizingSession}>Skift øvelse</button>
               <button onClick={() => setExerciseChangeMode(exerciseChangeMode === "add" ? null : "add")} disabled={sessionPlan.length >= 12 || customizingSession}>+ Tilføj ekstra øvelse</button>
             </div>
             <div className="session-set-controls">
@@ -1304,14 +1342,14 @@ export default function Home() {
                 disabled={currentExercise.sets >= 20 || customizingSession}
               >+ Tilføj sæt</button>
             </div>
-            {currentExerciseHasLogs && <p className="session-customize-note">Øvelsen kan ikke skiftes, efter et sæt er gemt. Du kan stadig tilføje sæt og rette de gemte sæt nedenfor.</p>}
+            {currentExerciseHasLogs && <p className="session-customize-note">Skifter du nu, bevarer BASE de udførte sæt på {currentExercise.name} og flytter de resterende sæt til erstatningsøvelsen.</p>}
           </article>
           {exerciseChangeMode === "replace" && (
             <article className="session-exercise-picker">
               <div><span>5 ALTERNATIVER</span><strong>Samme muskelgruppe</strong><button onClick={() => setExerciseChangeMode(null)}>Luk</button></div>
               <div className="session-alternative-list">
                 {exerciseAlternatives.map((exercise) => (
-                  <button key={exercise.name} onClick={() => customizeTodaySession(sessionPlan.map((item, index) => index === exerciseIndex ? definitionToContextualSessionExercise(exercise, sessionPlan, item) : item), exerciseIndex)} disabled={customizingSession}>
+                  <button key={exercise.name} onClick={() => replaceCurrentExercise(exercise)} disabled={customizingSession}>
                     <strong>{exercise.name}</strong><small>{exercise.target}</small><span>Vælg →</span>
                   </button>
                 ))}

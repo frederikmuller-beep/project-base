@@ -181,6 +181,9 @@ test("keeps the BASE dashboard, profile-specific 12-week plans and both feedback
   assert.match(page, /Skift øvelse/);
   assert.match(page, /− Fjern sæt/);
   assert.match(page, /\+ Tilføj sæt/);
+  assert.match(page, /replaceCurrentExercise/);
+  assert.match(page, /bevarer BASE de udførte sæt/);
+  assert.match(page, /remainingSets = Math\.max\(1, currentExercise\.sets - retainedSets\)/);
   assert.match(page, /Rediger dette sæt/);
   assert.match(page, /openLoggedSet/);
   assert.match(page, /Træn med rolig intensitet/);
