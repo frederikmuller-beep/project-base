@@ -102,6 +102,20 @@ export type AthleteDashboardData = {
     plannedSessions: number;
   };
   strengthExercises: StrengthExerciseMetric[];
+  bodybuilding?: {
+    currentWeek: number;
+    phase: string;
+    completedSessions: number;
+    plannedSessions: number;
+    nextSession: string | null;
+    feedback: { headline: string; detail: string };
+    muscleGroups: Array<{
+      id: string;
+      label: string;
+      plannedSets: number;
+      completedSets: number;
+    }>;
+  };
 };
 
 export const parseEffortRepCount = (value: string) =>

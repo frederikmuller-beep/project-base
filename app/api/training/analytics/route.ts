@@ -21,6 +21,20 @@ const unavailableMessage = (error: unknown) => {
   return message.includes("no such table") || message.includes("D1 binding");
 };
 
+const bodybuildingMuscleGroups = [
+  { id: "chest", label: "Bryst", pattern: /bænkpres|bench press|cable fly|pec deck|chest press|dips/i },
+  { id: "back", label: "Ryg", pattern: /pull-up|pulldown|row|straight-arm/i },
+  { id: "quads", label: "Quadriceps", pattern: /back squat|front squat|hack squat|leg press|leg extension/i },
+  { id: "posterior", label: "Baglår & balder", pattern: /romanian|hip thrust|split squat|leg curl/i },
+  { id: "shoulders", label: "Skuldre", pattern: /shoulder press|lateral raise|reverse pec deck|face pull/i },
+  { id: "biceps", label: "Biceps", pattern: /curl/i },
+  { id: "triceps", label: "Triceps", pattern: /triceps extension/i },
+  { id: "calves", label: "Læg", pattern: /calf raise/i },
+  { id: "core", label: "Core", pattern: /crunch|plank|dead bug|ab wheel/i },
+] as const;
+
+const bodybuildingGroupFor = (exerciseName: string) => bodybuildingMuscleGroups.find((group) => group.pattern.test(exerciseName));
+
 export async function GET() {
   const testerId = await getTesterId();
   if (!testerId) return Response.json({ error: "Tilslut dit tester-ID først." }, { status: 401 });
@@ -106,6 +120,54 @@ export async function GET() {
       };
     });
 
+    const bodybuilding = participant.trainingProfile === "bodybuilding" ? (() => {
+      const completedProgramIds = new Set(sessions.filter((session) => session.status === "completed").map((session) => session.programId));
+      const currentWeek = Array.from({ length: 12 }, (_, index) => index + 1).find((week) =>
+        staticPrograms.some((program) => program.week === week && program.programId && !completedProgramIds.has(program.programId)),
+      ) ?? 12;
+      const weekPrograms = staticPrograms.filter((program) => program.week === currentWeek && program.programId && program.exercises.length > 0);
+      const weekSessionData = sessionData.filter(({ program }) => program.week === currentWeek);
+      const plannedByGroup = new Map<string, number>();
+      const completedByGroup = new Map<string, number>();
+      for (const program of weekPrograms) {
+        for (const exercise of program.exercises) {
+          const group = bodybuildingGroupFor(exercise.name);
+          if (group) plannedByGroup.set(group.id, (plannedByGroup.get(group.id) ?? 0) + exercise.sets);
+        }
+      }
+      for (const { program, logs: sessionLogs } of weekSessionData) {
+        for (const log of sessionLogs) {
+          const group = bodybuildingGroupFor(program.exercises[log.exerciseIndex]?.name ?? "");
+          if (group) completedByGroup.set(group.id, (completedByGroup.get(group.id) ?? 0) + 1);
+        }
+      }
+      const muscleGroups = bodybuildingMuscleGroups.map(({ id, label }) => ({
+        id,
+        label,
+        plannedSets: plannedByGroup.get(id) ?? 0,
+        completedSets: completedByGroup.get(id) ?? 0,
+      })).filter((group) => group.plannedSets > 0);
+      const completedSessions = weekPrograms.filter((program) => program.programId && completedProgramIds.has(program.programId)).length;
+      const nextProgram = weekPrograms.find((program) => program.programId && !completedProgramIds.has(program.programId));
+      const lowestCompletion = [...muscleGroups].sort((left, right) => (left.completedSets / left.plannedSets) - (right.completedSets / right.plannedSets))[0];
+      const feedback = completedSessions === 0
+        ? { headline: `Uge ${currentWeek} er klar`, detail: `Start med ${nextProgram?.title.replace("Bodybuilding · ", "") ?? "første pas"}. BASE vurderer volumen igen, når de første sæt er registreret.` }
+        : completedSessions < weekPrograms.length
+          ? { headline: `${completedSessions} af ${weekPrograms.length} pas er gennemført`, detail: `Fortsæt med ${nextProgram?.title.replace("Bodybuilding · ", "") ?? "næste pas"}. ${lowestCompletion?.label ?? "Den resterende volumen"} fyldes op senere i ugens split.` }
+          : lowestCompletion && lowestCompletion.completedSets < lowestCompletion.plannedSets * 0.8
+            ? { headline: `${lowestCompletion.label} ligger under planen`, detail: `Du har registreret ${lowestCompletion.completedSets} af ${lowestCompletion.plannedSets} planlagte arbejdssæt. BASE holder belastningen stabil og prioriterer fuldførelse før mere vægt.` }
+            : { headline: "Ugens volumen er gennemført", detail: "Muskelgrupperne ligger tæt på planen. Næste progression afgøres af RIR, teknik og gennemførte sæt — ikke volumen alene." };
+      return {
+        currentWeek,
+        phase: weekPrograms[0]?.phase ?? "Akkumulering",
+        completedSessions,
+        plannedSessions: weekPrograms.length,
+        nextSession: nextProgram?.title.replace("Bodybuilding · ", "") ?? null,
+        feedback,
+        muscleGroups,
+      };
+    })() : undefined;
+
     const data: AthleteDashboardData = {
       summary: {
         expectedVolumeKg: planned.volumeKg,
@@ -116,6 +178,7 @@ export async function GET() {
         plannedSessions: expectedPrograms.length,
       },
       strengthExercises,
+      bodybuilding,
     };
     return Response.json(data, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {

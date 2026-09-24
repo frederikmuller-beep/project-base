@@ -41,6 +41,28 @@ export function AthleteDashboard({ data, loading, onBack }: { data: AthleteDashb
           <article><span>FAKTISK INTENSITET</span><strong>{formatIntensity(data.summary.actualIntensityPercent)}</strong><small>Baseret på vægt, reps og RIR</small></article>
         </div>
 
+        {data.bodybuilding && <>
+          <div className="dashboard-section-title"><span>BODYBUILDING · UGE {data.bodybuilding.currentWeek}</span><h2>Muskelgruppevolumen</h2></div>
+          <article className="bodybuilding-feedback-card">
+            <div><span>{data.bodybuilding.phase.toLocaleUpperCase("da-DK")}</span><strong>{data.bodybuilding.feedback.headline}</strong></div>
+            <b>{data.bodybuilding.completedSessions}/{data.bodybuilding.plannedSessions}</b>
+            <p>{data.bodybuilding.feedback.detail}</p>
+            {data.bodybuilding.nextSession && <small>NÆSTE PAS · {data.bodybuilding.nextSession}</small>}
+          </article>
+          <div className="muscle-volume-list">
+            {data.bodybuilding.muscleGroups.map((group) => {
+              const completion = group.plannedSets > 0 ? Math.min(100, Math.round((group.completedSets / group.plannedSets) * 100)) : 0;
+              const state = completion >= 100 ? "Gennemført" : completion >= 70 ? "Tæt på" : group.completedSets > 0 ? "I gang" : "Planlagt";
+              return <article key={group.id}>
+                <div><strong>{group.label}</strong><span>{group.completedSets} / {group.plannedSets} arbejdssæt</span></div>
+                <b className={completion >= 100 ? "complete" : ""}>{state}</b>
+                <div className="muscle-volume-track"><i style={{ width: `${completion}%` }} /></div>
+              </article>;
+            })}
+          </div>
+          <p className="bodybuilding-volume-note">BASE tæller primære arbejdssæt pr. muskelgruppe. Indirekte arbejde fra flerledsøvelser vises ikke som et helt ekstra sæt.</p>
+        </>}
+
         <div className="dashboard-section-title"><span>RELATIV STYRKE</span><h2>Udvikling i estimeret 1RM</h2></div>
         <div className="strength-lift-selector" aria-label="Vælg hovedøvelse">
           {data.strengthExercises.map((strength) => (
