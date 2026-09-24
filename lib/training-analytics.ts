@@ -93,6 +93,15 @@ export type StrengthExerciseMetric = {
 };
 
 export type AthleteDashboardData = {
+  profile: string;
+  overview: {
+    currentWeek: number;
+    phase: string;
+    completedSessions: number;
+    plannedSessions: number;
+    nextSession: string | null;
+    feedback: { headline: string; detail: string };
+  };
   summary: {
     expectedVolumeKg: number;
     actualVolumeKg: number;
@@ -102,6 +111,13 @@ export type AthleteDashboardData = {
     plannedSessions: number;
   };
   strengthExercises: StrengthExerciseMetric[];
+  sportModule?: {
+    kind: "strength" | "endurance" | "team" | "hybrid" | "golf" | "recreational";
+    eyebrow: string;
+    title: string;
+    feedback: string;
+    metrics: Array<{ label: string; value: string; detail: string }>;
+  };
   bodybuilding?: {
     currentWeek: number;
     phase: string;

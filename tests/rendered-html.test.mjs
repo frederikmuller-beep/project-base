@@ -282,6 +282,9 @@ test("builds a private athlete dashboard from persisted training data", async ()
   assert.match(dashboard, /FORVENTET VOLUMEN/);
   assert.match(dashboard, /FAKTISK INTENSITET/);
   assert.match(dashboard, /RELATIV STYRKE/);
+  assert.match(dashboard, /READINESS/);
+  assert.match(dashboard, /sportModule\.metrics\.map/);
+  assert.match(dashboard, /Muskelgruppevolumen/);
   assert.match(dashboard, /Første registrering = 100/);
   assert.match(dashboard, /strengthExercises\.map/);
   assert.match(dashboard, /Ingen data for/);
@@ -289,6 +292,10 @@ test("builds a private athlete dashboard from persisted training data", async ()
   assert.match(analyticsRoute, /private, no-store/);
   assert.match(analyticsRoute, /majorLiftForExercise/);
   assert.match(analyticsRoute, /majorStrengthLifts\.map/);
+  assert.match(analyticsRoute, /enduranceProfiles/);
+  assert.match(analyticsRoute, /teamProfiles/);
+  assert.match(analyticsRoute, /hybridProfiles/);
+  assert.match(analyticsRoute, /KONTINUITET/);
   assert.match(analytics, /estimatedOneRepMax/);
   for (const lift of ["Clean", "Power clean", "Jerk", "Clean & Jerk", "Snatch", "Power snatch", "Front squat", "Squat", "Dødløft", "Bænkpres", "Overhead press"]) {
     assert.match(analytics, new RegExp(lift.replace(/[&]/g, "\\&")));

@@ -980,7 +980,7 @@ export default function Home() {
         </section>
       )}
 
-      {view === "dashboard" && <AthleteDashboard data={dashboardData} loading={dashboardLoading} onBack={() => setView("today")} />}
+      {view === "dashboard" && <AthleteDashboard data={dashboardData} loading={dashboardLoading} healthSummary={healthSummary} readiness={{ energy, sleep, soreness, pain, checked: readinessChecked }} onBack={() => setView("today")} />}
 
       {view === "week" && (
         <section className="screen enter">
