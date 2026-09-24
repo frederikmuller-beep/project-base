@@ -21,7 +21,7 @@ test("all 500 templates use distinct weekly sessions and varied sport pools", { 
     }
     assert.ok(exerciseLibrary.every((exercise) => !/ · .+ · (begynder|øvet|avanceret) .+ \d+$/i.test(exercise.name)), "generated numbered variants must not exist in the library");
     assert.equal(programTemplates.length, 500);
-    assert.equal(Object.keys(sportProgramBlueprints).length, 18, "every BASE sport needs its own programming blueprint");
+    assert.equal(Object.keys(sportProgramBlueprints).length, 19, "every BASE sport needs its own programming blueprint");
     for (const [sport, blueprint] of Object.entries(sportProgramBlueprints)) {
       assert.equal(blueprint.sessions.length, 3, `${sport} needs three distinct training emphases`);
       assert.equal(new Set(blueprint.sessions.map((session) => session.title)).size, 3, `${sport} session titles must be distinct`);

@@ -253,7 +253,7 @@ const curatedSportExercises: ExerciseDefinition[] = [
   { name: "Pogo jumps", category: "Atletik", target: "Ankelstivhed · reaktiv styrke", cue: "Hold kontakttiden kort og land på samme sted", sets: "4", reps: "12", weight: "0", sports: ["athletics", "running", "football", "handball"], difficulty: "Øvet", visibility: "athlete", focus: "Reaktiv styrke" },
 ];
 
-const broadLandSports: TrainingProfile[] = ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational", "athletics", "golf", "running", "powerlifting", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"];
+const broadLandSports: TrainingProfile[] = ["weightlifting", "long_distance", "middle_distance", "sprint", "recreational", "athletics", "golf", "running", "powerlifting", "bodybuilding", "skiing", "triathlon", "ironman", "hyrox", "crossfit", "cycling", "american_football", "football", "handball"];
 
 const supplementalFocusExercises: ExerciseDefinition[] = [
   { name: "Depth jump", category: "Eksplosivitet", target: "Reaktiv styrke · landing", cue: "Træd ned, land kort og spring straks op med stabil knælinje", sets: "4", reps: "4", weight: "0", sports: broadLandSports, difficulty: "Avanceret", visibility: "athlete", focus: "Reaktiv styrke" },
@@ -286,6 +286,25 @@ const supplementalFocusExercises: ExerciseDefinition[] = [
   { name: "Cable dead bug", category: "Core", target: "Core · krydsstabilitet", cue: "Hold lænden stabil, mens modsatte arm og ben strækkes", sets: "3", reps: "8 pr. side", weight: "10", sports: broadLandSports, difficulty: "Øvet", visibility: "athlete", focus: "Corekontrol" },
 ];
 
+const bodybuildingExercises: ExerciseDefinition[] = [
+  { name: "Cable fly", category: "Bodybuilding · bryst", target: "Bryst · forkortet position", cue: "Før overarmene sammen uden at lade skuldrene rulle frem", sets: "3", reps: "12", weight: "15" },
+  { name: "Pec deck", category: "Bodybuilding · bryst", target: "Bryst · stabil isolation", cue: "Hold brystet højt og klem kontrolleret i slutpositionen", sets: "3", reps: "12", weight: "35" },
+  { name: "Hack squat", category: "Bodybuilding · ben", target: "Quadriceps · stabil squat", cue: "Brug fuldt bevægeudslag og hold knæene i samme retning som tæerne", sets: "4", reps: "8", weight: "80" },
+  { name: "Leg extension", category: "Bodybuilding · ben", target: "Quadriceps · isolation", cue: "Løft kontrolleret og undgå at slippe vægten i bunden", sets: "3", reps: "12", weight: "35" },
+  { name: "Seated leg curl", category: "Bodybuilding · ben", target: "Baglår · knæfleksion", cue: "Hold hoften i sædet og arbejd gennem fuldt bevægeudslag", sets: "3", reps: "10", weight: "35" },
+  { name: "Cable lateral raise", category: "Bodybuilding · skuldre", target: "Sidedelt · konstant spænding", cue: "Før albuen ud til siden uden at løfte skulderen", sets: "4", reps: "12", weight: "7.5" },
+  { name: "Reverse pec deck", category: "Bodybuilding · skuldre", target: "Bagskulder · øvre ryg", cue: "Før albuerne bredt tilbage med rolig overkrop", sets: "3", reps: "15", weight: "25" },
+  { name: "Machine shoulder press", category: "Bodybuilding · skuldre", target: "Skuldre · triceps", cue: "Pres i en stabil bane og stop før skulderen mister position", sets: "4", reps: "8", weight: "40" },
+  { name: "EZ-bar curl", category: "Bodybuilding · arme", target: "Biceps · albuebøjning", cue: "Hold overarmen stille og sænk stangen kontrolleret", sets: "3", reps: "10", weight: "25" },
+  { name: "Incline dumbbell curl", category: "Bodybuilding · arme", target: "Biceps · lang muskellængde", cue: "Bevar skulderen tilbage og stræk albuen kontrolleret", sets: "3", reps: "12", weight: "10" },
+  { name: "Cable hammer curl", category: "Bodybuilding · arme", target: "Brachialis · underarm", cue: "Hold neutralt greb og albuerne tæt ved kroppen", sets: "3", reps: "12", weight: "20" },
+  { name: "Cable triceps extension", category: "Bodybuilding · arme", target: "Triceps · albuestræk", cue: "Lås overarmen og stræk albuen helt uden at flytte skulderen", sets: "3", reps: "12", weight: "25" },
+  { name: "Overhead cable triceps extension", category: "Bodybuilding · arme", target: "Triceps · lang muskellængde", cue: "Hold albuerne stabile og lad triceps arbejde gennem hele banen", sets: "3", reps: "12", weight: "20" },
+  { name: "Standing calf raise", category: "Bodybuilding · læg", target: "Læg · gastrocnemius", cue: "Hold pause i toppen og sænk hælen helt kontrolleret", sets: "4", reps: "10", weight: "60" },
+  { name: "Seated calf raise", category: "Bodybuilding · læg", target: "Læg · soleus", cue: "Arbejd gennem fuldt bevægeudslag uden at bounce i bunden", sets: "4", reps: "15", weight: "40" },
+  { name: "Cable crunch", category: "Bodybuilding · core", target: "Mave · spinal fleksion", cue: "Rul brystkassen mod bækkenet uden at trække med armene", sets: "3", reps: "12", weight: "30" },
+].map((exercise) => ({ ...exercise, sports: ["bodybuilding"], difficulty: "Øvet", visibility: "athlete", focus: exercise.target.split("·")[0].trim() }));
+
 const inferredTags = (exercise: ExerciseDefinition): ExerciseFocusTag[] => {
   const text = `${exercise.name} ${exercise.category} ${exercise.target} ${exercise.focus ?? ""}`.toLocaleLowerCase("da-DK");
   const tags: ExerciseFocusTag[] = [];
@@ -307,4 +326,4 @@ const normalizeExercise = (exercise: ExerciseDefinition): ExerciseDefinition => 
   tags: Array.from(new Set([...(exercise.tags ?? []), ...inferredTags(exercise)])),
 });
 
-export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource, ...catalogHighlights, ...curatedSportExercises, ...supplementalFocusExercises].map(normalizeExercise);
+export const exerciseLibrary: ExerciseDefinition[] = [...exerciseLibrarySource, ...catalogHighlights, ...curatedSportExercises, ...supplementalFocusExercises, ...bodybuildingExercises].map(normalizeExercise);

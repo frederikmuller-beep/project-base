@@ -4,10 +4,11 @@ export const trainingWeekdays = ["MANDAG", "TIRSDAG", "ONSDAG", "TORSDAG", "FRED
 export type TrainingWeekday = typeof trainingWeekdays[number];
 
 export const defaultTrainingDays: TrainingWeekday[] = ["MANDAG", "ONSDAG", "LØRDAG"];
+export const bodybuildingTrainingDays: TrainingWeekday[] = ["MANDAG", "TIRSDAG", "TORSDAG", "FREDAG", "LØRDAG"];
 
 export const isTrainingDays = (value: unknown): value is TrainingWeekday[] => Array.isArray(value)
-  && value.length === 3
-  && new Set(value).size === 3
+  && (value.length === 3 || value.length === 5)
+  && new Set(value).size === value.length
   && value.every((day) => trainingWeekdays.includes(day as TrainingWeekday));
 
 export const parseTrainingDays = (value: string | null | undefined): TrainingWeekday[] => {

@@ -35,8 +35,9 @@ export async function POST(request: Request) {
   if (!isTrainingProfile(payload.trainingProfile)) {
     return Response.json({ error: "Vælg en af sportsprofilerne i BASE." }, { status: 400 });
   }
-  if (!isTrainingDays(payload.trainingDays)) {
-    return Response.json({ error: "Vælg præcis tre forskellige træningsdage." }, { status: 400 });
+  const requiredDays = payload.trainingProfile === "bodybuilding" ? 5 : 3;
+  if (!isTrainingDays(payload.trainingDays) || payload.trainingDays.length !== requiredDays) {
+    return Response.json({ error: payload.trainingProfile === "bodybuilding" ? "Vælg præcis fem forskellige træningsdage." : "Vælg præcis tre forskellige træningsdage." }, { status: 400 });
   }
   const trainingDays = [...payload.trainingDays].sort((left, right) => trainingWeekdays.indexOf(left) - trainingWeekdays.indexOf(right));
 

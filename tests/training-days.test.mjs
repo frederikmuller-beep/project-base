@@ -6,7 +6,9 @@ test("validates, warns about and applies three athlete-selected training days", 
   const server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: "custom", logLevel: "silent" });
   try {
     const { applyPreferredTrainingDays, hasConsecutiveTrainingDays, isTrainingDays, parseTrainingDays } = await server.ssrLoadModule("/app/training-days.ts");
+    const { getTrainingPlan } = await server.ssrLoadModule("/app/swim-program-data.ts");
     assert.equal(isTrainingDays(["TIRSDAG", "TORSDAG", "SØNDAG"]), true);
+    assert.equal(isTrainingDays(["MANDAG", "TIRSDAG", "TORSDAG", "FREDAG", "LØRDAG"]), true);
     assert.equal(isTrainingDays(["TIRSDAG", "TIRSDAG", "SØNDAG"]), false);
     assert.deepEqual(parseTrainingDays('["SØNDAG","TIRSDAG","TORSDAG"]'), ["TIRSDAG", "TORSDAG", "SØNDAG"]);
     assert.deepEqual(parseTrainingDays("broken"), ["MANDAG", "ONSDAG", "LØRDAG"]);
@@ -27,6 +29,11 @@ test("validates, warns about and applies three athlete-selected training days", 
 
     const fiveDayWeightliftingPlan = Array.from({ length: 5 }, (_, index) => ({ ...genericPlan[0], day: ["MANDAG", "TIRSDAG", "ONSDAG", "FREDAG", "LØRDAG"][index], programId: `wl-${index}` }));
     assert.deepEqual(applyPreferredTrainingDays(fiveDayWeightliftingPlan, ["TIRSDAG", "TORSDAG", "SØNDAG"]), fiveDayWeightliftingPlan, "existing five-day weightlifting test remains unchanged");
+
+    const bodybuildingPlan = getTrainingPlan("bodybuilding");
+    assert.equal(bodybuildingPlan.filter((day) => day.programId).length, 60, "serious bodybuilding uses five sessions across all 12 weeks");
+    assert.equal(bodybuildingPlan.filter((day) => day.week === 4 && day.programId)[0].phase, "Deload");
+    assert.ok(bodybuildingPlan.filter((day) => day.week === 4 && day.programId).every((day) => day.exercises.every((exercise) => exercise.sets <= 2)), "deload reduces working sets");
   } finally {
     await server.close();
   }

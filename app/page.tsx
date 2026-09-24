@@ -10,7 +10,7 @@ import { exerciseVideos, youtubeExerciseSearchUrl } from "./exercise-videos";
 import { FeedbackForm, type FeedbackKind } from "./feedback-form";
 import { countProgramSets, getWeekProgression, type ProgramDay, type SessionExercise } from "./program-data";
 import { defaultSwimProfile, getTrainingPlan, trainingProfileLabel, trainingProfileOptions, type TrainingProfile } from "./swim-program-data";
-import { applyPreferredTrainingDays, defaultTrainingDays, hasConsecutiveTrainingDays, trainingWeekdays, type TrainingWeekday } from "./training-days";
+import { applyPreferredTrainingDays, bodybuildingTrainingDays, defaultTrainingDays, hasConsecutiveTrainingDays, trainingWeekdays, type TrainingWeekday } from "./training-days";
 
 type View = "today" | "dashboard" | "week" | "library" | "readiness" | "recommendation" | "session" | "complete" | "feedback" | "feedbackThanks" | "extraBuilder" | "extraDay";
 
@@ -420,7 +420,7 @@ export default function Home() {
         setTesterId(data.testerId);
         setTrainingProfile(data.trainingProfile);
         if (data.trainingProfile) setProfileDraft(data.trainingProfile);
-        if (data.trainingDays?.length === 3) {
+        if (data.trainingDays?.length === 3 || data.trainingDays?.length === 5) {
           setTrainingDays(data.trainingDays);
           setTrainingDaysDraft(data.trainingDays);
         }
@@ -431,9 +431,16 @@ export default function Home() {
     return () => { active = false; };
   }, []);
 
+  const requiredTrainingDays = profileDraft === "bodybuilding" ? 5 : 3;
+  const selectProfile = (profile: TrainingProfile) => {
+    setProfileDraft(profile);
+    setTrainingDaysDraft((current) => profile === "bodybuilding"
+      ? (current.length === 5 ? current : bodybuildingTrainingDays)
+      : (current.length === 3 ? current : defaultTrainingDays));
+  };
   const toggleTrainingDay = (day: TrainingWeekday) => setTrainingDaysDraft((current) => current.includes(day)
     ? current.filter((candidate) => candidate !== day)
-    : current.length < 3 ? [...current, day] : current);
+    : current.length < requiredTrainingDays ? [...current, day] : current);
 
   const connectTester = async () => {
     setIdentityError("");
@@ -990,18 +997,18 @@ export default function Home() {
               </>
             ) : (
               <>
-                <div className="tester-copy"><strong>{testerId ? "Redigér profil og træningsdage" : "Forbind tester-ID og træningsprofil"}</strong><small>Vælg den profil og de tre ugedage, der passer til din hverdag.</small></div>
+                <div className="tester-copy"><strong>{testerId ? "Redigér profil og træningsdage" : "Forbind tester-ID og træningsprofil"}</strong><small>Vælg profil og de træningsdage, der passer til din hverdag.</small></div>
                 <div className="profile-options" role="radiogroup" aria-label="Træningsprofil">
                   {trainingProfileOptions.map((option) => (
-                    <button type="button" role="radio" aria-checked={profileDraft === option.id} className={profileDraft === option.id ? "active" : ""} key={option.id} onClick={() => setProfileDraft(option.id)}>
+                    <button type="button" role="radio" aria-checked={profileDraft === option.id} className={profileDraft === option.id ? "active" : ""} key={option.id} onClick={() => selectProfile(option.id)}>
                       <strong>{option.label}</strong><small>{option.description}</small>
                     </button>
                   ))}
                 </div>
-                {profileDraft === "weightlifting" ? <div className="training-day-note"><strong>Eksisterende vægtløftertest</strong><span>Profilen har fem faste ugentlige pas og beholder den nuværende rytme, så den igangværende test ikke ændres.</span></div> : <div className="training-day-picker"><span>VÆLG 3 TRÆNINGSDAGE</span><div className="training-day-options">{trainingWeekdays.map((day) => <button type="button" key={day} className={trainingDaysDraft.includes(day) ? "active" : ""} aria-pressed={trainingDaysDraft.includes(day)} onClick={() => toggleTrainingDay(day)}><strong>{day.slice(0, 3)}</strong><small>{day.toLocaleLowerCase("da-DK")}</small></button>)}</div><small>{trainingDaysDraft.length}/3 valgt · valget gælder alle 12 uger og kan ændres senere.</small>{hasConsecutiveTrainingDays(trainingDaysDraft) && <p>Bemærk: Du har valgt sammenhængende træningsdage. Overvej at gøre mindst ét af passene lettere.</p>}</div>}
+                {profileDraft === "weightlifting" ? <div className="training-day-note"><strong>Eksisterende vægtløftertest</strong><span>Profilen har fem faste ugentlige pas og beholder den nuværende rytme, så den igangværende test ikke ændres.</span></div> : <div className="training-day-picker"><span>VÆLG {requiredTrainingDays} TRÆNINGSDAGE</span><div className="training-day-options">{trainingWeekdays.map((day) => <button type="button" key={day} className={trainingDaysDraft.includes(day) ? "active" : ""} aria-pressed={trainingDaysDraft.includes(day)} onClick={() => toggleTrainingDay(day)}><strong>{day.slice(0, 3)}</strong><small>{day.toLocaleLowerCase("da-DK")}</small></button>)}</div><small>{trainingDaysDraft.length}/{requiredTrainingDays} valgt · valget gælder alle 12 uger og kan ændres senere.</small>{profileDraft === "bodybuilding" && <p>Fem pas fordeler muskelgrupperne, så volumen kan styres uden at presse alle kvaliteter ind i tre dage.</p>}{hasConsecutiveTrainingDays(trainingDaysDraft) && <p>Bemærk: Du har valgt sammenhængende træningsdage. Overvej at gøre mindst ét af passene lettere.</p>}</div>}
                 <div className="tester-connect">
                   {!testerId && <input aria-label="Tester-ID" value={testerInput} onChange={(event) => setTesterInput(event.target.value)} placeholder="A1" maxLength={12} />}
-                  <button onClick={connectTester} disabled={identityLoading || (!testerId && !testerInput.trim()) || (profileDraft !== "weightlifting" && trainingDaysDraft.length !== 3)}>{identityLoading ? "…" : testerId ? "Gem valg" : "Forbind"}</button>
+                  <button onClick={connectTester} disabled={identityLoading || (!testerId && !testerInput.trim()) || (profileDraft !== "weightlifting" && trainingDaysDraft.length !== requiredTrainingDays)}>{identityLoading ? "…" : testerId ? "Gem valg" : "Forbind"}</button>
                   {testerId && <button className="cancel" onClick={() => { setProfileDraft(trainingProfile ?? defaultSwimProfile); setTrainingDaysDraft(trainingDays); setEditingPreferences(false); }}>Annullér</button>}
                 </div>
               </>

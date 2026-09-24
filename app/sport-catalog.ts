@@ -8,6 +8,7 @@ export const sportProfiles = [
   { id: "golf", label: "Golf", short: "GOLF", description: "Rotation, stabilitet og kraftoverførsel til golf.", tracksLoad: true, tracksDistance: false },
   { id: "running", label: "Løb", short: "LØB", description: "Landstyrke og kapacitet til hurtigere og mere robust løb.", tracksLoad: true, tracksDistance: true },
   { id: "powerlifting", label: "Powerlifting", short: "PL", description: "Progression i squat, bænkpres og dødløft.", tracksLoad: true, tracksDistance: false },
+  { id: "bodybuilding", label: "Bodybuilding", short: "BB", description: "Muskelgruppespecifik hypertrofi, volumenstyring og progression for seriøse bodybuildere.", tracksLoad: true, tracksDistance: false },
   { id: "skiing", label: "Skisport", short: "SKI", description: "Benstyrke, balance og udholdenhed til skisport.", tracksLoad: true, tracksDistance: true },
   { id: "triathlon", label: "Triathlon", short: "TRI", description: "Supplerende styrke på tværs af svømning, cykling og løb.", tracksLoad: true, tracksDistance: true },
   { id: "ironman", label: "Ironman", short: "IRON", description: "Robusthed og styrkeudholdenhed til lange konkurrencer.", tracksLoad: true, tracksDistance: true },

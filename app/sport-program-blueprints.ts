@@ -92,6 +92,14 @@ export const sportProgramBlueprints: Record<TrainingProfile, SportProgramBluepri
       session("Dødløft & tung squat", "Startstyrke fra gulvet, bagkæde og tunge konkurrencerelevante løft", 80, "Dødløft|Romanian deadlift|Back squat|Pause back squat|Front squat|Trap bar deadlift", "Pendlay row|Hip thrust|Pull-up|Lat pulldown|Bulgarian split squat|Ab wheel rollout", "Dødløft|Back squat|Pause back squat|Tempo back squat|Romanian deadlift|Bænkpres"),
     ],
   },
+  bodybuilding: {
+    principle: "Hypertrofi styres med ugentlig volumen pr. muskelgruppe, arbejde tæt på udmattelse og planlagte deloads — ikke tilfældig variation.",
+    sessions: [
+      session("Bryst, skuldre & triceps", "Progressiv presvolumen med stabile bevægelser og målrettet isolation", 75, "Bænkpres|Incline dumbbell bench press|Dips|Machine shoulder press|Dumbbell shoulder press|Cable chest press", "Cable fly|Pec deck|Cable lateral raise|Cable triceps extension|Overhead cable triceps extension|Face pull", "Bænkpres|Incline dumbbell bench press|Cable fly|Cable lateral raise|Cable triceps extension|Dips"),
+      session("Ryg & biceps", "Rygbredde, rygtykkelse og albuebøjere med kontrolleret teknik", 75, "Pull-up|Lat pulldown|Seated cable row|Chest-supported dumbbell row|Pendlay row|Single-arm cable row", "Straight-arm pulldown|Reverse pec deck|Face pull|EZ-bar curl|Incline dumbbell curl|Cable hammer curl", "Pull-up|Lat pulldown|Chest-supported dumbbell row|Reverse pec deck|EZ-bar curl|Incline dumbbell curl"),
+      session("Ben & lægge", "Quadriceps, baglår og balder gennem fuldt bevægeudslag", 80, "Back squat|Hack squat|Leg press|Romanian deadlift|Hip thrust|Bulgarian split squat", "Leg extension|Lying leg curl|Seated leg curl|Standing calf raise|Seated calf raise|Cable crunch", "Hack squat|Leg press|Romanian deadlift|Leg extension|Seated leg curl|Standing calf raise"),
+    ],
+  },
   skiing: {
     principle: "Eccentrisk benstyrke, enbensbalance og stavkraft bygges uden at fjerne kvalitet fra udholdenhedspassene.",
     sessions: [

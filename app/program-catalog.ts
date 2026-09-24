@@ -25,6 +25,7 @@ const profileFocus: Record<TrainingProfile, string[]> = {
   golf: ["rotation", "hoftekontrol", "slagkraft", "rygstabilitet"],
   running: ["hurtigere 10 km", "løbeøkonomi", "tærskel", "3000 m intervalløb"],
   powerlifting: ["squat", "bænkpres", "dødløft", "konkurrenceform"],
+  bodybuilding: ["hypertrofi", "muskelgruppespecifik volumen", "svage muskelgrupper", "muskelbevarelse"],
   skiing: ["benudholdenhed", "balance", "stavkraft", "aerob kapacitet"],
   triathlon: ["disciplinbalance", "styrkeudholdenhed", "skiftezonen", "aerob base"],
   ironman: ["lang udholdenhed", "energiøkonomi", "robusthed", "raceforberedelse"],
@@ -100,6 +101,12 @@ const powerliftingStrengthNames = [
   "Dips", "Bulgarian split squat", "Hip thrust", "Face pull", "Lat pulldown", "Incline dumbbell bench press", "Ab wheel rollout",
 ];
 
+const bodybuildingStrengthNames = [
+  "Bænkpres", "Incline dumbbell bench press", "Cable fly", "Dips", "Lat pulldown", "Pull-up", "Seated cable row", "Chest-supported dumbbell row",
+  "Back squat", "Leg press", "Hack squat", "Romanian deadlift", "Lying leg curl", "Leg extension", "Hip thrust", "Bulgarian split squat",
+  "Dumbbell shoulder press", "Cable lateral raise", "Reverse pec deck", "Face pull", "EZ-bar curl", "Incline dumbbell curl", "Cable triceps extension", "Overhead cable triceps extension", "Standing calf raise", "Seated calf raise",
+];
+
 const weightliftingStrengthNames = [
   "Snatch", "Power snatch", "Hang snatch", "Clean & Jerk", "Power clean", "Hang clean", "Split jerk", "Push jerk", "Front squat", "Back squat",
   "Snatch pull", "Clean pull", "Romanian deadlift", "Strict press", "Pendlay row", "Pull-up", "Bulgarian split squat", "Overhead squat",
@@ -115,6 +122,7 @@ const profileStrengthNames: Record<TrainingProfile, string[]> = {
   golf: golfStrengthNames,
   running: enduranceStrengthNames,
   powerlifting: powerliftingStrengthNames,
+  bodybuilding: bodybuildingStrengthNames,
   skiing: enduranceStrengthNames,
   triathlon: [...swimStrengthNames, ...enduranceStrengthNames],
   ironman: [...enduranceStrengthNames, ...swimStrengthNames],
@@ -136,6 +144,7 @@ const profileSportSpecificNames: Record<TrainingProfile, string[]> = {
   golf: ["Cable rotation", "Hip airplane", "Landmine rotation", "Rotational medicine ball throw", "Medicine ball scoop toss", "Tall-kneeling cable chop", "Tall-kneeling cable lift", "Half-kneeling anti-rotation hold"],
   running: ["A-skip", "Pogo jumps", "Banded hip-flexion march", "Single-leg calf raise", "Single-leg balance reach", "Banded lateral walk", "Step-up", "Lateral skater jump"],
   powerlifting: ["Back squat", "Bænkpres", "Dødløft", "Pause back squat", "Tempo back squat", "Front squat", "Romanian deadlift", "Incline dumbbell bench press", "Dips", "Hip thrust", "Pendlay row", "Pull-up", "Ab wheel rollout", "Lat pulldown"],
+  bodybuilding: bodybuildingStrengthNames,
   skiing: ["Lateral skater jump", "Single-leg balance reach", "Banded lateral walk", "Jump squat", "Step-up", "Lateral lunge", "Suitcase carry", "Copenhagen plank"],
   triathlon: ["A-skip", "Pogo jumps", "Banded hip-flexion march", "Straight-arm pulldown", "Band freestyle stroke", "Single-leg calf raise", "Hip airplane", "Pallof press"],
   ironman: ["Banded hip-flexion march", "Straight-arm pulldown", "Band freestyle stroke", "Single-leg calf raise", "Hip airplane", "Banded lateral walk", "Pallof press", "Dead bug"],

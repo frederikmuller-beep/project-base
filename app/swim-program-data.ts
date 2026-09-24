@@ -2,6 +2,7 @@ import { extendPlanToTwelveWeeks, twoWeekPlan, type ProgramDay, type SessionExer
 import { getSwimmerStrengthPlan } from "./strength-program-data";
 import { clarifyUnilateralReps } from "./exercise-units";
 import { buildGenericTrainingPlan } from "./program-catalog";
+import { bodybuildingPlan } from "./bodybuilding-program-data";
 import type { StrengthProfile, SwimProfile, TrainingProfile } from "./sport-catalog";
 export { isSwimProfile, isTrainingProfile, swimProfileLabel, swimProfileOptions, trainingProfileLabel, trainingProfileOptions } from "./sport-catalog";
 export type { StrengthProfile, SwimProfile, TrainingProfile } from "./sport-catalog";
@@ -120,5 +121,5 @@ export const swimPlans: Record<SwimProfile, ProgramDay[]> = {
 export const defaultSwimProfile: SwimProfile = "middle_distance";
 export const getSwimPlan = (profile: SwimProfile) => swimPlans[profile];
 export const getSwimProgram = (programId: string) => Object.values(swimPlans).flat().find((day) => day.programId === programId);
-export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : ["long_distance", "middle_distance", "sprint", "recreational"].includes(profile) ? getSwimmerStrengthPlan(profile as StrengthProfile) : buildGenericTrainingPlan(profile);
+export const getTrainingPlan = (profile: TrainingProfile) => profile === "weightlifting" ? twoWeekPlan : profile === "bodybuilding" ? bodybuildingPlan : ["long_distance", "middle_distance", "sprint", "recreational"].includes(profile) ? getSwimmerStrengthPlan(profile as StrengthProfile) : buildGenericTrainingPlan(profile);
 export const getTrainingProgram = (profile: TrainingProfile, programId: string) => getTrainingPlan(profile).find((day) => day.programId === programId);
