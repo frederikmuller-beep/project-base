@@ -8,6 +8,76 @@
       "when": 1785364876549,
       "tag": "0000_polite_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785774414753,
+      "tag": "0001_dapper_quasimodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785998997515,
+      "tag": "0002_unique_rogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786009845356,
+      "tag": "0003_ambiguous_pretty_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786024178203,
+      "tag": "0004_keen_skreet",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786024670508,
+      "tag": "0005_strong_mulholland_black",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786490924012,
+      "tag": "0006_flawless_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786531995409,
+      "tag": "0007_cute_captain_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786902734686,
+      "tag": "0008_nostalgic_thena",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787213409455,
+      "tag": "0009_rare_baron_strucker",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788331545671,
+      "tag": "0010_previous_nova",
+      "breakpoints": true
     }
   ]
 }
